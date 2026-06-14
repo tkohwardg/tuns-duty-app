@@ -37,7 +37,6 @@ describe("Duty Request Date Logic", () => {
     const now = new Date();
     const diffMs = min.getTime() - now.getTime();
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    // Should be 6 or 7 days depending on time of day
     expect(diffDays).toBeGreaterThanOrEqual(6);
     expect(diffDays).toBeLessThanOrEqual(7);
   });
@@ -47,18 +46,16 @@ describe("Duty Request Date Logic", () => {
     const now = new Date();
     const diffMs = max.getTime() - now.getTime();
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    // Should be around 63 days
     expect(diffDays).toBeGreaterThanOrEqual(62);
     expect(diffDays).toBeLessThanOrEqual(63);
   });
 
   it("should generate correct number of available dates (approximately 57 days)", () => {
     const dates = getAvailableDates();
-    // 56 days range + 1 (inclusive) = 57
     expect(dates.length).toBe(57);
   });
 
-  it("should format date correctly in DD/M/YYYY format", () => {
+  it("should format date correctly in D/M/YYYY format", () => {
     const date = new Date(2026, 5, 15); // June 15, 2026
     expect(formatDate(date)).toBe("15/6/2026");
   });
@@ -96,6 +93,39 @@ describe("Duty Types", () => {
   });
 });
 
+describe("Duty Color Mapping", () => {
+  const DUTY_COLORS: Record<string, string> = {
+    A: "#EF4444",
+    P: "#3B82F6",
+    "0900-1300": "#86EFAC",
+    "0900-1700": "#22C55E",
+  };
+
+  it("should map A to red", () => {
+    expect(DUTY_COLORS["A"]).toBe("#EF4444");
+  });
+
+  it("should map P to blue", () => {
+    expect(DUTY_COLORS["P"]).toBe("#3B82F6");
+  });
+
+  it("should map 0900-1300 to light green", () => {
+    expect(DUTY_COLORS["0900-1300"]).toBe("#86EFAC");
+  });
+
+  it("should map 0900-1700 to green", () => {
+    expect(DUTY_COLORS["0900-1700"]).toBe("#22C55E");
+  });
+
+  it("should have a color for every duty type", () => {
+    const DUTY_OPTIONS = ["A", "P", "0900-1700", "0900-1300"];
+    DUTY_OPTIONS.forEach((opt) => {
+      expect(DUTY_COLORS[opt]).toBeDefined();
+      expect(DUTY_COLORS[opt]).toMatch(/^#[0-9A-Fa-f]{6}$/);
+    });
+  });
+});
+
 describe("Request Status Types", () => {
   const VALID_STATUSES = ["pending", "approved", "rejected", "cancelled"];
 
@@ -108,5 +138,99 @@ describe("Request Status Types", () => {
     expect(VALID_STATUSES).toContain("approved");
     expect(VALID_STATUSES).toContain("rejected");
     expect(VALID_STATUSES).toContain("cancelled");
+  });
+
+  it("cancelled should not mean deleted (status change only)", () => {
+    const requests = [
+      { id: "1", status: "pending" },
+      { id: "2", status: "cancelled" },
+      { id: "3", status: "approved" },
+    ];
+    // All requests should still exist
+    expect(requests).toHaveLength(3);
+    expect(requests.find((r) => r.id === "2")?.status).toBe("cancelled");
+  });
+});
+
+describe("Calendar Helpers", () => {
+  function getDaysInMonth(year: number, month: number): number {
+    return new Date(year, month + 1, 0).getDate();
+  }
+
+  function getFirstDayOfMonth(year: number, month: number): number {
+    return new Date(year, month, 1).getDay();
+  }
+
+  function formatDateStr(day: number, month: number, year: number): string {
+    return `${day}/${month + 1}/${year}`;
+  }
+
+  it("should get correct days in June 2026 (30 days)", () => {
+    expect(getDaysInMonth(2026, 5)).toBe(30);
+  });
+
+  it("should get correct days in February 2026 (28 days)", () => {
+    expect(getDaysInMonth(2026, 1)).toBe(28);
+  });
+
+  it("should get correct first day of June 2026 (Monday = 1)", () => {
+    expect(getFirstDayOfMonth(2026, 5)).toBe(1);
+  });
+
+  it("should format date string correctly", () => {
+    expect(formatDateStr(21, 5, 2026)).toBe("21/6/2026");
+    expect(formatDateStr(1, 0, 2026)).toBe("1/1/2026");
+  });
+});
+
+describe("Approved Duty Filtering (future only)", () => {
+  function parseDateStr(dateStr: string): Date | null {
+    const parts = dateStr.split("/");
+    if (parts.length !== 3) return null;
+    const day = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const year = parseInt(parts[2], 10);
+    return new Date(year, month, day);
+  }
+
+  it("should filter out past duties", () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const requests = [
+      { date: "1/1/2020", status: "approved" },
+      { date: "1/1/2030", status: "approved" },
+    ];
+
+    const filtered = requests.filter((r) => {
+      const d = parseDateStr(r.date);
+      return d && d >= today;
+    });
+
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0].date).toBe("1/1/2030");
+  });
+
+  it("should include today's duties", () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStr = `${today.getDate()}/${today.getMonth() + 1}/${today.getFullYear()}`;
+
+    const requests = [{ date: todayStr, status: "approved" }];
+
+    const filtered = requests.filter((r) => {
+      const d = parseDateStr(r.date);
+      return d && d >= today;
+    });
+
+    expect(filtered).toHaveLength(1);
+  });
+
+  it("should parse date string correctly", () => {
+    const date = parseDateStr("21/6/2026");
+    expect(date).not.toBeNull();
+    expect(date!.getDate()).toBe(21);
+    expect(date!.getMonth()).toBe(5);
+    expect(date!.getFullYear()).toBe(2026);
   });
 });

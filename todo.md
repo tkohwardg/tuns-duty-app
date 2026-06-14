@@ -16,3 +16,12 @@
 - [x] Firestore status sync (pending/approved/rejected/cancelled)
 - [x] Admin Approve Duty screen
 - [x] App logo and branding
+- [x] Fix Review Requested Duty page - show pending list with swipe-left-to-cancel
+- [x] Add bottom navigation bar to all pages for instant navigation
+- [x] Remove Admin approve duty button from normal user UI
+- [x] Redesign Admin Approve Duty page - top calendar with color-coded approved duties, bottom pending list with swipe approve/reject
+- [x] Redesign Approved Duty page - top list (future only) with Admin swipe actions, bottom calendar with tap-to-view modal
+- [x] Color coding for duty types: red=A, blue=P, light green=0900-1300, green=0900-1700
+- [x] Modal on calendar date tap showing approved duties list
+- [x] Admin swipe right to reject, swipe left to approve on pending list
+- [x] Admin swipe right to reject, swipe left to cancel on approved list

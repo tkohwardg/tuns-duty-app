@@ -14,15 +14,6 @@ export default function RootLayout() {
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="login" />
             <Stack.Screen name="(tabs)" />
-
-            <Stack.Screen
-              name="approved-duty"
-              options={{ presentation: "card" }}
-            />
-            <Stack.Screen
-              name="admin-approve"
-              options={{ presentation: "card" }}
-            />
           </Stack>
         </AuthProvider>
       </ThemeProvider>

@@ -1,11 +1,10 @@
-import React, { useState, useCallback } from "react";
+import React, { useState } from "react";
 import {
   Text,
   View,
   TouchableOpacity,
   Alert,
   ScrollView,
-  Platform,
   Modal,
   FlatList,
   ActivityIndicator,
@@ -15,7 +14,6 @@ import { useAuthContext } from "@/lib/auth-context";
 import { router } from "expo-router";
 import { addDutyRequest, type DutyType } from "@/lib/firebase";
 import { submitToGoogleSheet } from "@/lib/google-sheets";
-import { Timestamp } from "firebase/firestore";
 
 const DUTY_OPTIONS: DutyType[] = ["A", "P", "0900-1700", "0900-1300"];
 
@@ -47,7 +45,6 @@ function formatToday(): string {
   return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
 }
 
-// Generate available dates for the picker
 function getAvailableDates(): Date[] {
   const dates: Date[] = [];
   const min = getMinDate();
@@ -61,7 +58,7 @@ function getAvailableDates(): Date[] {
 }
 
 export default function RequestDutyScreen() {
-  const { userProfile, isAdmin, logout } = useAuthContext();
+  const { userProfile, logout } = useAuthContext();
   const [requests, setRequests] = useState<RequestRow[]>([
     { date: null, dutyType: null },
     { date: null, dutyType: null },
@@ -130,7 +127,6 @@ export default function RequestDutyScreen() {
       }
 
       Alert.alert("Success", "Your duty request(s) have been submitted.");
-      // Reset form
       setRequests([
         { date: null, dutyType: null },
         { date: null, dutyType: null },
@@ -233,51 +229,14 @@ export default function RequestDutyScreen() {
           )}
         </TouchableOpacity>
 
-        {/* Navigation Buttons */}
-        <View className="flex-row mt-6 gap-3">
-          <TouchableOpacity
-            onPress={() => router.push("/(tabs)/my-requests" as any)}
-            className="flex-1 rounded-xl py-3 items-center"
-            style={{ backgroundColor: "#E91E8B" }}
-          >
-            <Text className="text-white text-sm font-semibold">
-              Review Requested duty
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => router.push("/approved-duty" as any)}
-            className="flex-1 rounded-xl py-3 items-center"
-            style={{ backgroundColor: "#3F51B5" }}
-          >
-            <Text className="text-white text-sm font-semibold">
-              Review Approved duty
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Bottom Buttons */}
-        <View className="flex-row mt-4 gap-3">
-          <TouchableOpacity
-            onPress={handleLogout}
-            className="flex-1 rounded-xl py-3 items-center"
-            style={{ backgroundColor: "#F44336" }}
-          >
-            <Text className="text-white text-sm font-semibold">Log out</Text>
-          </TouchableOpacity>
-
-          {isAdmin && (
-            <TouchableOpacity
-              onPress={() => router.push("/admin-approve" as any)}
-              className="flex-1 rounded-xl py-3 items-center"
-              style={{ backgroundColor: "#FF9800" }}
-            >
-              <Text className="text-white text-sm font-semibold">
-                Admin approve duty
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
+        {/* Log out Button */}
+        <TouchableOpacity
+          onPress={handleLogout}
+          className="mt-4 rounded-xl py-3 items-center"
+          style={{ backgroundColor: "#F44336" }}
+        >
+          <Text className="text-white text-sm font-semibold">Log out</Text>
+        </TouchableOpacity>
       </ScrollView>
 
       {/* Date Picker Modal */}

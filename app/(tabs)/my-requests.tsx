@@ -8,10 +8,10 @@ import {
   Modal,
   ActivityIndicator,
   Animated,
+  RefreshControl,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useAuthContext } from "@/lib/auth-context";
-import { router } from "expo-router";
 import {
   getUserDutyRequests,
   updateDutyRequestStatus,
@@ -25,11 +25,11 @@ export default function MyRequestsScreen() {
   const [pendingRequests, setPendingRequests] = useState<DutyRequest[]>([]);
   const [rejectedRequests, setRejectedRequests] = useState<DutyRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [showRejectedModal, setShowRejectedModal] = useState(false);
 
   const loadRequests = useCallback(async () => {
     if (!userProfile) return;
-    setIsLoading(true);
     try {
       const [pending, rejected] = await Promise.all([
         getUserDutyRequests(userProfile.uid, "pending"),
@@ -39,14 +39,24 @@ export default function MyRequestsScreen() {
       setRejectedRequests(rejected);
     } catch (error) {
       console.error("Error loading requests:", error);
-    } finally {
-      setIsLoading(false);
+      Alert.alert("Error", "Failed to load requests. Please check your connection.");
     }
   }, [userProfile]);
 
   useEffect(() => {
-    loadRequests();
+    const init = async () => {
+      setIsLoading(true);
+      await loadRequests();
+      setIsLoading(false);
+    };
+    init();
   }, [loadRequests]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadRequests();
+    setRefreshing(false);
+  };
 
   const handleCancel = async (request: DutyRequest) => {
     if (!request.id) return;
@@ -75,7 +85,7 @@ export default function MyRequestsScreen() {
     );
   };
 
-  const renderRightActions = (
+  const renderLeftActions = (
     _progress: Animated.AnimatedInterpolation<number>,
     _dragX: Animated.AnimatedInterpolation<number>,
     request: DutyRequest
@@ -84,19 +94,19 @@ export default function MyRequestsScreen() {
       <TouchableOpacity
         onPress={() => handleCancel(request)}
         style={{ backgroundColor: "#EF4444" }}
-        className="justify-center items-center px-6 rounded-r-xl"
+        className="justify-center items-center px-6"
       >
-        <Text className="text-white font-semibold">Cancel</Text>
+        <Text className="text-white font-semibold text-sm">Cancel</Text>
       </TouchableOpacity>
     );
   };
 
   const renderPendingItem = ({ item }: { item: DutyRequest }) => (
     <Swipeable
-      renderRightActions={(progress, dragX) =>
-        renderRightActions(progress, dragX, item)
+      renderLeftActions={(progress, dragX) =>
+        renderLeftActions(progress, dragX, item)
       }
-      overshootRight={false}
+      overshootLeft={false}
     >
       <View className="flex-row items-center py-4 px-4 bg-background border-b border-border">
         <View
@@ -149,6 +159,9 @@ export default function MyRequestsScreen() {
         <Text className="text-xl font-bold text-foreground">
           Your requested duty pending approval
         </Text>
+        <Text className="text-xs text-muted mt-1">
+          ← Swipe left to cancel request
+        </Text>
       </View>
 
       {/* Pending List */}
@@ -162,22 +175,15 @@ export default function MyRequestsScreen() {
             data={pendingRequests}
             renderItem={renderPendingItem}
             keyExtractor={(item) => item.id || Math.random().toString()}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
           />
         )}
       </View>
 
       {/* Bottom Buttons */}
-      <View className="px-4 pb-6 pt-4 gap-3">
-        <TouchableOpacity
-          onPress={() => router.push("/approved-duty" as any)}
-          className="rounded-xl py-4 items-center"
-          style={{ backgroundColor: "#3F51B5" }}
-        >
-          <Text className="text-white text-base font-semibold">
-            Review Approved duty
-          </Text>
-        </TouchableOpacity>
-
+      <View className="px-4 pb-4 pt-4 gap-3">
         <TouchableOpacity
           onPress={() => setShowRejectedModal(true)}
           className="rounded-xl py-4 items-center"

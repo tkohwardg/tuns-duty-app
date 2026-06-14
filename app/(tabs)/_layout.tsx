@@ -3,11 +3,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HapticTab } from "@/components/haptic-tab";
 import { Platform } from "react-native";
 import { useColors } from "@/hooks/use-colors";
+import { useAuthContext } from "@/lib/auth-context";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 export default function TabLayout() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { isAdmin } = useAuthContext();
   const bottomPadding = Platform.OS === "web" ? 12 : Math.max(insets.bottom, 8);
   const tabBarHeight = 56 + bottomPadding;
 
@@ -30,9 +32,9 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Request Duty",
+          title: "Request",
           tabBarIcon: ({ color }) => (
-            <MaterialIcons size={26} name="add-circle-outline" color={color} />
+            <MaterialIcons size={24} name="add-circle-outline" color={color} />
           ),
         }}
       />
@@ -41,8 +43,27 @@ export default function TabLayout() {
         options={{
           title: "My Requests",
           tabBarIcon: ({ color }) => (
-            <MaterialIcons size={26} name="list-alt" color={color} />
+            <MaterialIcons size={24} name="list-alt" color={color} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="approved-duty"
+        options={{
+          title: "Approved",
+          tabBarIcon: ({ color }) => (
+            <MaterialIcons size={24} name="check-circle" color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="admin-approve"
+        options={{
+          title: "Admin",
+          tabBarIcon: ({ color }) => (
+            <MaterialIcons size={24} name="admin-panel-settings" color={color} />
+          ),
+          href: isAdmin ? undefined : null,
         }}
       />
     </Tabs>
