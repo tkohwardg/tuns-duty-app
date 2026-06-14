@@ -1,10 +1,9 @@
 import { Tabs } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
 import { HapticTab } from "@/components/haptic-tab";
-import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Platform } from "react-native";
 import { useColors } from "@/hooks/use-colors";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 export default function TabLayout() {
   const colors = useColors();
@@ -15,7 +14,7 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: colors.tint,
+        tabBarActiveTintColor: "#4CAF50",
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarStyle: {
@@ -31,8 +30,19 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Home",
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: "Request Duty",
+          tabBarIcon: ({ color }) => (
+            <MaterialIcons size={26} name="add-circle-outline" color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="my-requests"
+        options={{
+          title: "My Requests",
+          tabBarIcon: ({ color }) => (
+            <MaterialIcons size={26} name="list-alt" color={color} />
+          ),
         }}
       />
     </Tabs>

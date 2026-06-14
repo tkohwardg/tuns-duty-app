@@ -1,0 +1,154 @@
+import { initializeApp } from "firebase/app";
+import {
+  getAuth,
+  initializeAuth,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  type User,
+} from "firebase/auth";
+import {
+  getFirestore,
+  collection,
+  doc,
+  addDoc,
+  updateDoc,
+  getDocs,
+  query,
+  where,
+  orderBy,
+  Timestamp,
+} from "firebase/firestore";
+import { Platform } from "react-native";
+
+// Firebase configuration - values come from environment/secrets
+const firebaseConfig = {
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || "",
+  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || "",
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || "",
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET || "",
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "",
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID || "",
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+
+// Initialize Auth
+let auth: ReturnType<typeof getAuth>;
+if (Platform.OS === "web") {
+  auth = getAuth(app);
+} else {
+  // For React Native, use getAuth (firebase v9+ handles persistence internally)
+  auth = getAuth(app);
+}
+
+// Initialize Firestore
+const db = getFirestore(app);
+
+// Auth functions
+export const loginWithEmail = async (email: string, password: string) => {
+  return signInWithEmailAndPassword(auth, email, password);
+};
+
+export const logout = async () => {
+  return signOut(auth);
+};
+
+export const getCurrentUser = (): User | null => {
+  return auth.currentUser;
+};
+
+export const onAuthChange = (callback: (user: User | null) => void) => {
+  return onAuthStateChanged(auth, callback);
+};
+
+// Firestore collections
+export const COLLECTIONS = {
+  USERS: "users",
+  DUTY_REQUESTS: "duty_requests",
+} as const;
+
+// Duty request types
+export type DutyType = "A" | "P" | "0900-1700" | "0900-1300";
+export type RequestStatus = "pending" | "approved" | "rejected" | "cancelled";
+
+export interface DutyRequest {
+  id?: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  date: string; // DD/M/YYYY format
+  dutyType: DutyType;
+  status: RequestStatus;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export interface UserProfile {
+  uid: string;
+  email: string;
+  name: string;
+  staffNumber: string;
+  role: "admin" | "user";
+}
+
+// Firestore operations
+export const addDutyRequest = async (request: Omit<DutyRequest, "id" | "createdAt" | "updatedAt">) => {
+  const now = Timestamp.now();
+  return addDoc(collection(db, COLLECTIONS.DUTY_REQUESTS), {
+    ...request,
+    createdAt: now,
+    updatedAt: now,
+  });
+};
+
+export const updateDutyRequestStatus = async (requestId: string, status: RequestStatus) => {
+  const docRef = doc(db, COLLECTIONS.DUTY_REQUESTS, requestId);
+  return updateDoc(docRef, {
+    status,
+    updatedAt: Timestamp.now(),
+  });
+};
+
+export const getUserDutyRequests = async (userId: string, status?: RequestStatus) => {
+  let q;
+  if (status) {
+    q = query(
+      collection(db, COLLECTIONS.DUTY_REQUESTS),
+      where("userId", "==", userId),
+      where("status", "==", status),
+      orderBy("createdAt", "desc")
+    );
+  } else {
+    q = query(
+      collection(db, COLLECTIONS.DUTY_REQUESTS),
+      where("userId", "==", userId),
+      orderBy("createdAt", "desc")
+    );
+  }
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as DutyRequest));
+};
+
+export const getAllPendingRequests = async () => {
+  const q = query(
+    collection(db, COLLECTIONS.DUTY_REQUESTS),
+    where("status", "==", "pending"),
+    orderBy("createdAt", "desc")
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as DutyRequest));
+};
+
+export const getAllApprovedRequests = async () => {
+  const q = query(
+    collection(db, COLLECTIONS.DUTY_REQUESTS),
+    where("status", "==", "approved"),
+    orderBy("createdAt", "desc")
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as DutyRequest));
+};
+
+export { auth, db };
