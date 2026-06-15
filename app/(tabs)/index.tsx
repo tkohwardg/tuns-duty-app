@@ -57,12 +57,17 @@ function getAvailableDates(): Date[] {
   return dates;
 }
 
+const INITIAL_REQUESTS: RequestRow[] = [
+  { date: null, dutyType: null },
+  { date: null, dutyType: null },
+  { date: null, dutyType: null },
+  { date: null, dutyType: null },
+  { date: null, dutyType: null },
+];
+
 export default function RequestDutyScreen() {
   const { userProfile, logout } = useAuthContext();
-  const [requests, setRequests] = useState<RequestRow[]>([
-    { date: null, dutyType: null },
-    { date: null, dutyType: null },
-  ]);
+  const [requests, setRequests] = useState<RequestRow[]>([...INITIAL_REQUESTS]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState<number | null>(null);
   const [showDutyPicker, setShowDutyPicker] = useState<number | null>(null);
@@ -90,6 +95,16 @@ export default function RequestDutyScreen() {
   };
 
   const handleSubmit = async () => {
+    // Check for rows with date selected but no duty option
+    const incompleteRows = requests.filter((r) => r.date && !r.dutyType);
+    if (incompleteRows.length > 0) {
+      Alert.alert(
+        "Incomplete Request",
+        "You have selected a date without choosing a duty option. Please select a duty type for all dated requests or reset the row."
+      );
+      return;
+    }
+
     const validRequests = requests.filter((r) => r.date && r.dutyType);
     if (validRequests.length === 0) {
       Alert.alert("Error", "Please select at least one date and duty type.");
@@ -127,10 +142,7 @@ export default function RequestDutyScreen() {
       }
 
       Alert.alert("Success", "Your duty request(s) have been submitted.");
-      setRequests([
-        { date: null, dutyType: null },
-        { date: null, dutyType: null },
-      ]);
+      setRequests([...INITIAL_REQUESTS]);
     } catch (error) {
       console.error("Submit error:", error);
       Alert.alert("Error", "Failed to submit request. Please try again.");
@@ -174,7 +186,7 @@ export default function RequestDutyScreen() {
           </View>
         </View>
 
-        {/* Request Rows */}
+        {/* Request Rows (5 slots) */}
         {requests.map((req, index) => (
           <View
             key={index}

@@ -23,6 +23,14 @@ import { getDutyColor, getDaysInMonth, getFirstDayOfMonth, formatDateStr } from 
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Swipeable } from "react-native-gesture-handler";
 
+function parseDateStr(dateStr: string): Date {
+  const parts = dateStr.split("/");
+  const day = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1;
+  const year = parseInt(parts[2], 10);
+  return new Date(year, month, day);
+}
+
 export default function AdminApproveScreen() {
   const { isAdmin } = useAuthContext();
   const [pendingRequests, setPendingRequests] = useState<DutyRequest[]>([]);
@@ -41,7 +49,20 @@ export default function AdminApproveScreen() {
         getAllPendingRequests(),
         getAllApprovedRequests(),
       ]);
-      setPendingRequests(pending);
+      // Sort pending by duty date ascending, then by createdAt ascending
+      // (earlier requesters have higher priority for admin to review)
+      const sortedPending = pending.sort((a, b) => {
+        // First sort by duty date ascending
+        const dateA = parseDateStr(a.date);
+        const dateB = parseDateStr(b.date);
+        const dateDiff = dateA.getTime() - dateB.getTime();
+        if (dateDiff !== 0) return dateDiff;
+        // Then sort by createdAt ascending (who requested earlier gets priority)
+        const createdA = a.createdAt?.toMillis?.() || 0;
+        const createdB = b.createdAt?.toMillis?.() || 0;
+        return createdA - createdB;
+      });
+      setPendingRequests(sortedPending);
       setApprovedRequests(approved);
     } catch (error) {
       console.error("Error loading data:", error);

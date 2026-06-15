@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   Text,
   View,
@@ -20,6 +20,14 @@ import {
 import { updateSheetStatus } from "@/lib/google-sheets";
 import { Swipeable } from "react-native-gesture-handler";
 
+function parseDateStr(dateStr: string): Date {
+  const parts = dateStr.split("/");
+  const day = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1;
+  const year = parseInt(parts[2], 10);
+  return new Date(year, month, day);
+}
+
 export default function MyRequestsScreen() {
   const { userProfile } = useAuthContext();
   const [pendingRequests, setPendingRequests] = useState<DutyRequest[]>([]);
@@ -27,6 +35,8 @@ export default function MyRequestsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showRejectedModal, setShowRejectedModal] = useState(false);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const swipeableRefs = useRef<Map<string, Swipeable>>(new Map());
 
   const loadRequests = useCallback(async () => {
     if (!userProfile) return;
@@ -35,7 +45,13 @@ export default function MyRequestsScreen() {
         getUserDutyRequests(userProfile.uid, "pending"),
         getUserDutyRequests(userProfile.uid, "rejected"),
       ]);
-      setPendingRequests(pending);
+      // Sort by duty date ascending
+      const sortedPending = pending.sort((a, b) => {
+        const dateA = parseDateStr(a.date);
+        const dateB = parseDateStr(b.date);
+        return dateA.getTime() - dateB.getTime();
+      });
+      setPendingRequests(sortedPending);
       setRejectedRequests(rejected);
     } catch (error) {
       console.error("Error loading requests:", error);
@@ -60,55 +76,59 @@ export default function MyRequestsScreen() {
 
   const handleCancel = async (request: DutyRequest) => {
     if (!request.id) return;
-    Alert.alert(
-      "Cancel Request",
-      `Cancel duty request for ${request.date} (${request.dutyType})?`,
-      [
-        { text: "No", style: "cancel" },
-        {
-          text: "Yes, Cancel",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await updateDutyRequestStatus(request.id!, "cancelled");
-              await updateSheetStatus(request.id!, "cancelled");
-              setPendingRequests((prev) =>
-                prev.filter((r) => r.id !== request.id)
-              );
-              Alert.alert("Done", "Request cancelled successfully.");
-            } catch (error) {
-              Alert.alert("Error", "Failed to cancel request.");
-            }
-          },
-        },
-      ]
-    );
+    // Set loading state
+    setCancellingId(request.id);
+    try {
+      await updateDutyRequestStatus(request.id, "cancelled");
+      await updateSheetStatus(request.id, "cancelled");
+      setPendingRequests((prev) =>
+        prev.filter((r) => r.id !== request.id)
+      );
+    } catch (error) {
+      Alert.alert("Error", "Failed to cancel request.");
+      // Close the swipeable on error
+      const ref = swipeableRefs.current.get(request.id);
+      if (ref) ref.close();
+    } finally {
+      setCancellingId(null);
+    }
   };
 
-  const renderLeftActions = (
-    _progress: Animated.AnimatedInterpolation<number>,
-    _dragX: Animated.AnimatedInterpolation<number>,
-    request: DutyRequest
-  ) => {
+  const renderLeftActions = (request: DutyRequest) => {
+    const isCancelling = cancellingId === request.id;
     return (
       <TouchableOpacity
         onPress={() => handleCancel(request)}
+        disabled={isCancelling}
         style={{ backgroundColor: "#EF4444" }}
         className="justify-center items-center px-6"
       >
-        <Text className="text-white font-semibold text-sm">Cancel</Text>
+        {isCancelling ? (
+          <ActivityIndicator size="small" color="#fff" />
+        ) : (
+          <Text className="text-white font-semibold text-sm">Cancel</Text>
+        )}
       </TouchableOpacity>
     );
   };
 
   const renderPendingItem = ({ item }: { item: DutyRequest }) => (
     <Swipeable
-      renderLeftActions={(progress, dragX) =>
-        renderLeftActions(progress, dragX, item)
-      }
+      ref={(ref) => {
+        if (ref && item.id) {
+          swipeableRefs.current.set(item.id, ref);
+        }
+      }}
+      renderLeftActions={() => renderLeftActions(item)}
       overshootLeft={false}
     >
       <View className="flex-row items-center py-4 px-4 bg-background border-b border-border">
+        {cancellingId === item.id && (
+          <View className="absolute inset-0 bg-background/80 z-10 items-center justify-center flex-row">
+            <ActivityIndicator size="small" color="#EF4444" />
+            <Text className="text-muted text-sm ml-2">Cancelling...</Text>
+          </View>
+        )}
         <View
           className="w-10 h-10 rounded-full mr-3"
           style={{ backgroundColor: "#D1D5DB" }}

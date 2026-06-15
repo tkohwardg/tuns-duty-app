@@ -25,3 +25,8 @@
 - [x] Modal on calendar date tap showing approved duties list
 - [x] Admin swipe right to reject, swipe left to approve on pending list
 - [x] Admin swipe right to reject, swipe left to cancel on approved list
+- [x] My Requests page: sort duty list by duty date ascending
+- [x] My Requests page: show loading indicator during cancel swipe action
+- [x] Request Duty page: add 3 more request slots (total 5)
+- [x] Request Duty page: prohibit submitting date without duty option selected
+- [x] Admin Approve page: sort pending list by duty date ascending then requested date ascending
