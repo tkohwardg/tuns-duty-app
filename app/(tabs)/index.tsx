@@ -31,7 +31,7 @@ function getMinDate(): Date {
 
 function getMaxDate(): Date {
   const d = new Date();
-  d.setDate(d.getDate() + 7 + 56); // 7 days + 8 weeks
+  d.setDate(d.getDate() + 7 + 56);
   d.setHours(23, 59, 59, 999);
   return d;
 }
@@ -67,7 +67,9 @@ const INITIAL_REQUESTS: RequestRow[] = [
 
 export default function RequestDutyScreen() {
   const { userProfile, logout } = useAuthContext();
-  const [requests, setRequests] = useState<RequestRow[]>([...INITIAL_REQUESTS]);
+  const [requests, setRequests] = useState<RequestRow[]>(
+    INITIAL_REQUESTS.map((r) => ({ ...r }))
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState<number | null>(null);
   const [showDutyPicker, setShowDutyPicker] = useState<number | null>(null);
@@ -95,19 +97,21 @@ export default function RequestDutyScreen() {
   };
 
   const handleSubmit = async () => {
-    // Check for rows with date selected but no duty option
-    const incompleteRows = requests.filter((r) => r.date && !r.dutyType);
-    if (incompleteRows.length > 0) {
-      Alert.alert(
-        "Incomplete Request",
-        "You have selected a date without choosing a duty option. Please select a duty type for all dated requests or reset the row."
-      );
-      return;
+    // Validate: neither date nor duty option allowed blank (if one is filled, both must be)
+    for (let i = 0; i < requests.length; i++) {
+      const r = requests[i];
+      if ((r.date && !r.dutyType) || (!r.date && r.dutyType)) {
+        Alert.alert(
+          "Incomplete Request",
+          `Request ${i + 1}: Both date and duty option must be selected, or both left blank.`
+        );
+        return;
+      }
     }
 
     const validRequests = requests.filter((r) => r.date && r.dutyType);
     if (validRequests.length === 0) {
-      Alert.alert("Error", "Please select at least one date and duty type.");
+      Alert.alert("Error", "Please fill in at least one complete request (date + duty type).");
       return;
     }
 
@@ -130,10 +134,8 @@ export default function RequestDutyScreen() {
           status: "pending" as const,
         };
 
-        // Submit to Firestore
         const docRef = await addDutyRequest(dutyRequest);
 
-        // Submit to Google Sheets
         await submitToGoogleSheet({
           ...dutyRequest,
           timestamp: new Date().toISOString(),
@@ -142,7 +144,8 @@ export default function RequestDutyScreen() {
       }
 
       Alert.alert("Success", "Your duty request(s) have been submitted.");
-      setRequests([...INITIAL_REQUESTS]);
+      // Clear all slots after submission
+      setRequests(INITIAL_REQUESTS.map((r) => ({ ...r })));
     } catch (error) {
       console.error("Submit error:", error);
       Alert.alert("Error", "Failed to submit request. Please try again.");
@@ -196,7 +199,6 @@ export default function RequestDutyScreen() {
               Request {index + 1}
             </Text>
 
-            {/* Date Picker Button */}
             <TouchableOpacity
               onPress={() => setShowDatePicker(index)}
               className="flex-1 mx-2 py-2 px-3 rounded-lg border border-border bg-surface"
@@ -206,7 +208,6 @@ export default function RequestDutyScreen() {
               </Text>
             </TouchableOpacity>
 
-            {/* Duty Picker Button */}
             <TouchableOpacity
               onPress={() => setShowDutyPicker(index)}
               className="flex-1 mx-2 py-2 px-3 rounded-lg border border-border bg-surface"
@@ -216,7 +217,6 @@ export default function RequestDutyScreen() {
               </Text>
             </TouchableOpacity>
 
-            {/* Reset Button */}
             <TouchableOpacity
               onPress={() => handleReset(index)}
               style={{ backgroundColor: "#E91E8B" }}

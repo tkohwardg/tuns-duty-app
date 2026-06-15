@@ -7,8 +7,8 @@ import {
   Alert,
   ActivityIndicator,
   Modal,
-  Animated,
   RefreshControl,
+  Dimensions,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useAuthContext } from "@/lib/auth-context";
@@ -19,9 +19,21 @@ import {
   type DutyRequest,
 } from "@/lib/firebase";
 import { updateSheetStatus } from "@/lib/google-sheets";
-import { getDutyColor, getDaysInMonth, getFirstDayOfMonth, formatDateStr } from "@/lib/duty-colors";
+import {
+  getDutyColor,
+  getDaysInMonth,
+  getFirstDayOfMonth,
+  formatDateStr,
+  getDutyHours,
+  getMostRecentSunday,
+  getWeekEndSaturday,
+  parseDateString,
+} from "@/lib/duty-colors";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Swipeable } from "react-native-gesture-handler";
+
+const SCREEN_HEIGHT = Dimensions.get("window").height;
+const CALENDAR_HEIGHT = SCREEN_HEIGHT / 3;
 
 function parseDateStr(dateStr: string): Date {
   const parts = dateStr.split("/");
@@ -42,6 +54,7 @@ export default function AdminApproveScreen() {
   const [selectedDateDuties, setSelectedDateDuties] = useState<DutyRequest[]>([]);
   const [showDutyModal, setShowDutyModal] = useState(false);
   const [selectedDateStr, setSelectedDateStr] = useState("");
+  const [selectedStaff, setSelectedStaff] = useState<{ name: string; userId: string } | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -49,15 +62,12 @@ export default function AdminApproveScreen() {
         getAllPendingRequests(),
         getAllApprovedRequests(),
       ]);
-      // Sort pending by duty date ascending, then by createdAt ascending
-      // (earlier requesters have higher priority for admin to review)
+      // Sort pending by duty date DESCENDING, then by createdAt ASCENDING (earlier requester first)
       const sortedPending = pending.sort((a, b) => {
-        // First sort by duty date ascending
         const dateA = parseDateStr(a.date);
         const dateB = parseDateStr(b.date);
-        const dateDiff = dateA.getTime() - dateB.getTime();
+        const dateDiff = dateB.getTime() - dateA.getTime();
         if (dateDiff !== 0) return dateDiff;
-        // Then sort by createdAt ascending (who requested earlier gets priority)
         const createdA = a.createdAt?.toMillis?.() || 0;
         const createdB = b.createdAt?.toMillis?.() || 0;
         return createdA - createdB;
@@ -84,13 +94,28 @@ export default function AdminApproveScreen() {
     setRefreshing(false);
   };
 
+  // Calculate total working hours for selected staff in current week (Sun-Sat)
+  const getWeeklyHours = (): number => {
+    if (!selectedStaff) return 0;
+    const sunday = getMostRecentSunday();
+    const saturday = getWeekEndSaturday(sunday);
+    return approvedRequests
+      .filter((r) => {
+        if (r.userId !== selectedStaff.userId) return false;
+        const d = parseDateString(r.date);
+        if (!d) return false;
+        return d >= sunday && d <= saturday;
+      })
+      .reduce((total, r) => total + getDutyHours(r.dutyType), 0);
+  };
+
   const handleApprove = async (request: DutyRequest) => {
     if (!request.id) return;
     try {
       await updateDutyRequestStatus(request.id, "approved");
       await updateSheetStatus(request.id, "approved");
       setPendingRequests((prev) => prev.filter((r) => r.id !== request.id));
-      setApprovedRequests((prev) => [request, ...prev]);
+      setApprovedRequests((prev) => [{ ...request, status: "approved" }, ...prev]);
       Alert.alert("Done", "Request approved.");
     } catch (error) {
       Alert.alert("Error", "Failed to approve request.");
@@ -141,6 +166,10 @@ export default function AdminApproveScreen() {
     }
   };
 
+  const handleStaffTap = (request: DutyRequest) => {
+    setSelectedStaff({ name: request.userName, userId: request.userId });
+  };
+
   // Swipe left to approve
   const renderRightActions = (request: DutyRequest) => {
     return (
@@ -181,14 +210,14 @@ export default function AdminApproveScreen() {
 
     weekDays.forEach((day, i) =>
       cells.push(
-        <View key={`header-${i}`} className="flex-1 items-center py-1">
+        <View key={`header-${i}`} className="flex-1 items-center py-0.5">
           <Text className="text-xs text-muted font-medium">{day}</Text>
         </View>
       )
     );
 
     for (let i = 0; i < firstDay; i++) {
-      cells.push(<View key={`empty-${i}`} className="flex-1 items-center py-1" />);
+      cells.push(<View key={`empty-${i}`} className="flex-1 items-center py-0.5" />);
     }
 
     for (let day = 1; day <= daysInMonth; day++) {
@@ -199,11 +228,11 @@ export default function AdminApproveScreen() {
       cells.push(
         <TouchableOpacity
           key={`day-${day}`}
-          className="flex-1 items-center py-1"
+          className="flex-1 items-center py-0.5"
           onPress={() => handleDateTap(day)}
         >
           <View
-            className={`w-7 h-7 rounded-full items-center justify-center ${
+            className={`w-6 h-6 rounded-full items-center justify-center ${
               isToday ? "bg-primary" : ""
             }`}
           >
@@ -220,7 +249,7 @@ export default function AdminApproveScreen() {
               {approvedForDay.slice(0, 3).map((r, idx) => (
                 <View
                   key={idx}
-                  style={{ backgroundColor: getDutyColor(r.dutyType), width: 6, height: 6, borderRadius: 3 }}
+                  style={{ backgroundColor: getDutyColor(r.dutyType), width: 5, height: 5, borderRadius: 2.5 }}
                 />
               ))}
             </View>
@@ -248,7 +277,11 @@ export default function AdminApproveScreen() {
       overshootRight={false}
       overshootLeft={false}
     >
-      <View className="flex-row items-center py-3 px-4 bg-background border-b border-border">
+      <TouchableOpacity
+        onPress={() => handleStaffTap(item)}
+        activeOpacity={0.7}
+        className="flex-row items-center py-3 px-4 bg-background border-b border-border"
+      >
         <View
           className="w-9 h-9 rounded-full mr-3"
           style={{ backgroundColor: "#D1D5DB" }}
@@ -265,7 +298,7 @@ export default function AdminApproveScreen() {
         >
           <Text className="text-white text-xs font-bold">{item.dutyType}</Text>
         </View>
-      </View>
+      </TouchableOpacity>
     </Swipeable>
   );
 
@@ -288,53 +321,74 @@ export default function AdminApproveScreen() {
     );
   }
 
+  const weeklyHours = getWeeklyHours();
+
   return (
     <ScreenContainer className="flex-1">
       {/* Header */}
-      <View className="items-center py-3 border-b border-border">
+      <View className="items-center py-2 border-b border-border">
         <Text className="text-lg font-bold text-foreground">
           Requests pending approval
         </Text>
       </View>
 
-      {/* Calendar - Top Half */}
-      <View className="mx-3 mt-2 border border-border rounded-xl p-2 bg-surface">
+      {/* Selected Staff Info */}
+      <View className="flex-row mx-4 mt-2 mb-1">
+        <View className="flex-1">
+          <Text className="text-xs text-muted">Selected Staff Name:</Text>
+          <Text className="text-xs text-muted">Total working hours this</Text>
+          <Text className="text-xs text-muted">  week (Sun-Sat):</Text>
+        </View>
+        <View className="items-end">
+          <Text className="text-sm font-bold text-foreground">
+            {selectedStaff ? selectedStaff.name : "—"}
+          </Text>
+          <Text className="text-sm font-bold text-foreground">
+            {selectedStaff ? `${weeklyHours} hrs` : "—"}
+          </Text>
+        </View>
+      </View>
+
+      {/* Calendar - 1/3 of screen */}
+      <View
+        className="mx-3 border border-border rounded-xl p-2 bg-surface"
+        style={{ height: CALENDAR_HEIGHT }}
+      >
         <View className="flex-row items-center justify-between mb-1">
           <View className="flex-row items-center">
             <TouchableOpacity onPress={prevMonth} className="p-1">
-              <MaterialIcons name="chevron-left" size={22} color="#11181C" />
+              <MaterialIcons name="chevron-left" size={20} color="#11181C" />
             </TouchableOpacity>
             <TouchableOpacity onPress={nextMonth} className="p-1">
-              <MaterialIcons name="chevron-right" size={22} color="#11181C" />
+              <MaterialIcons name="chevron-right" size={20} color="#11181C" />
             </TouchableOpacity>
             <Text className="text-sm font-bold text-foreground ml-2">
               {String(currentMonth + 1).padStart(2, "0")}/{currentYear}
             </Text>
           </View>
-          {/* Legend */}
-          <View className="flex-row items-center gap-2">
+          <View className="flex-row items-center gap-1">
             <View className="flex-row items-center">
-              <View style={{ backgroundColor: "#EF4444", width: 8, height: 8, borderRadius: 4 }} />
-              <Text className="text-xs text-muted ml-0.5">A</Text>
+              <View style={{ backgroundColor: "#EF4444", width: 6, height: 6, borderRadius: 3 }} />
+              <Text className="text-[10px] text-muted ml-0.5">A</Text>
             </View>
             <View className="flex-row items-center">
-              <View style={{ backgroundColor: "#3B82F6", width: 8, height: 8, borderRadius: 4 }} />
-              <Text className="text-xs text-muted ml-0.5">P</Text>
+              <View style={{ backgroundColor: "#3B82F6", width: 6, height: 6, borderRadius: 3 }} />
+              <Text className="text-[10px] text-muted ml-0.5">P</Text>
             </View>
             <View className="flex-row items-center">
-              <View style={{ backgroundColor: "#22C55E", width: 8, height: 8, borderRadius: 4 }} />
-              <Text className="text-xs text-muted ml-0.5">9-17</Text>
+              <View style={{ backgroundColor: "#22C55E", width: 6, height: 6, borderRadius: 3 }} />
+              <Text className="text-[10px] text-muted ml-0.5">9-17</Text>
             </View>
             <View className="flex-row items-center">
-              <View style={{ backgroundColor: "#86EFAC", width: 8, height: 8, borderRadius: 4 }} />
-              <Text className="text-xs text-muted ml-0.5">9-13</Text>
+              <View style={{ backgroundColor: "#86EFAC", width: 6, height: 6, borderRadius: 3 }} />
+              <Text className="text-[10px] text-muted ml-0.5">9-13</Text>
             </View>
           </View>
         </View>
         {renderCalendar()}
       </View>
 
-      {/* Pending Requests List - Bottom Half */}
+      {/* Pending Requests List - Bottom */}
       <View className="flex-1 mx-3 mt-2 mb-2 border border-border rounded-xl overflow-hidden">
         <View className="bg-surface px-4 py-2 border-b border-border">
           <Text className="text-sm font-bold text-foreground">
@@ -345,9 +399,18 @@ export default function AdminApproveScreen() {
           </Text>
         </View>
         {pendingRequests.length === 0 ? (
-          <View className="flex-1 items-center justify-center py-8">
-            <Text className="text-muted text-sm">No pending requests</Text>
-          </View>
+          <FlatList
+            data={[]}
+            renderItem={() => null}
+            ListEmptyComponent={
+              <View className="items-center justify-center py-8">
+                <Text className="text-muted text-sm">No pending requests</Text>
+              </View>
+            }
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+          />
         ) : (
           <FlatList
             data={pendingRequests}

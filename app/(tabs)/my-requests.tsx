@@ -7,7 +7,6 @@ import {
   FlatList,
   Modal,
   ActivityIndicator,
-  Animated,
   RefreshControl,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
@@ -19,6 +18,7 @@ import {
 } from "@/lib/firebase";
 import { updateSheetStatus } from "@/lib/google-sheets";
 import { Swipeable } from "react-native-gesture-handler";
+import { useNavigation } from "@react-navigation/native";
 
 function parseDateStr(dateStr: string): Date {
   const parts = dateStr.split("/");
@@ -30,6 +30,7 @@ function parseDateStr(dateStr: string): Date {
 
 export default function MyRequestsScreen() {
   const { userProfile } = useAuthContext();
+  const navigation = useNavigation();
   const [pendingRequests, setPendingRequests] = useState<DutyRequest[]>([]);
   const [rejectedRequests, setRejectedRequests] = useState<DutyRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -45,14 +46,19 @@ export default function MyRequestsScreen() {
         getUserDutyRequests(userProfile.uid, "pending"),
         getUserDutyRequests(userProfile.uid, "rejected"),
       ]);
-      // Sort by duty date ascending
+      // Sort by duty date DESCENDING (newest first)
       const sortedPending = pending.sort((a, b) => {
         const dateA = parseDateStr(a.date);
         const dateB = parseDateStr(b.date);
-        return dateA.getTime() - dateB.getTime();
+        return dateB.getTime() - dateA.getTime();
+      });
+      const sortedRejected = rejected.sort((a, b) => {
+        const dateA = parseDateStr(a.date);
+        const dateB = parseDateStr(b.date);
+        return dateB.getTime() - dateA.getTime();
       });
       setPendingRequests(sortedPending);
-      setRejectedRequests(rejected);
+      setRejectedRequests(sortedRejected);
     } catch (error) {
       console.error("Error loading requests:", error);
       Alert.alert("Error", "Failed to load requests. Please check your connection.");
@@ -68,6 +74,14 @@ export default function MyRequestsScreen() {
     init();
   }, [loadRequests]);
 
+  // Reload data every time this tab gains focus (instant update after submission)
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("focus", () => {
+      loadRequests();
+    });
+    return unsubscribe;
+  }, [navigation, loadRequests]);
+
   const onRefresh = async () => {
     setRefreshing(true);
     await loadRequests();
@@ -76,7 +90,6 @@ export default function MyRequestsScreen() {
 
   const handleCancel = async (request: DutyRequest) => {
     if (!request.id) return;
-    // Set loading state
     setCancellingId(request.id);
     try {
       await updateDutyRequestStatus(request.id, "cancelled");
@@ -86,7 +99,6 @@ export default function MyRequestsScreen() {
       );
     } catch (error) {
       Alert.alert("Error", "Failed to cancel request.");
-      // Close the swipeable on error
       const ref = swipeableRefs.current.get(request.id);
       if (ref) ref.close();
     } finally {
@@ -187,9 +199,18 @@ export default function MyRequestsScreen() {
       {/* Pending List */}
       <View className="flex-1 mx-4 mt-4 border border-border rounded-xl overflow-hidden">
         {pendingRequests.length === 0 ? (
-          <View className="flex-1 items-center justify-center py-20">
-            <Text className="text-muted text-base">No pending requests</Text>
-          </View>
+          <FlatList
+            data={[]}
+            renderItem={() => null}
+            ListEmptyComponent={
+              <View className="items-center justify-center py-20">
+                <Text className="text-muted text-base">No pending requests</Text>
+              </View>
+            }
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+          />
         ) : (
           <FlatList
             data={pendingRequests}

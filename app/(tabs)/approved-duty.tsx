@@ -7,8 +7,8 @@ import {
   ActivityIndicator,
   Modal,
   Alert,
-  Animated,
   RefreshControl,
+  Dimensions,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useAuthContext } from "@/lib/auth-context";
@@ -18,14 +18,22 @@ import {
   type DutyRequest,
 } from "@/lib/firebase";
 import { updateSheetStatus } from "@/lib/google-sheets";
-import { getDutyColor, getDaysInMonth, getFirstDayOfMonth, formatDateStr } from "@/lib/duty-colors";
+import {
+  getDutyColor,
+  getDaysInMonth,
+  getFirstDayOfMonth,
+  formatDateStr,
+  parseDateString,
+} from "@/lib/duty-colors";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Swipeable } from "react-native-gesture-handler";
+import { useNavigation } from "@react-navigation/native";
 
-function parseDateStr(dateStr: string): Date | null {
-  // Format: D/M/YYYY
+const SCREEN_HEIGHT = Dimensions.get("window").height;
+const CALENDAR_HEIGHT = SCREEN_HEIGHT / 3;
+
+function parseDateStr(dateStr: string): Date {
   const parts = dateStr.split("/");
-  if (parts.length !== 3) return null;
   const day = parseInt(parts[0], 10);
   const month = parseInt(parts[1], 10) - 1;
   const year = parseInt(parts[2], 10);
@@ -34,6 +42,7 @@ function parseDateStr(dateStr: string): Date | null {
 
 export default function ApprovedDutyScreen() {
   const { isAdmin } = useAuthContext();
+  const navigation = useNavigation();
   const [approvedRequests, setApprovedRequests] = useState<DutyRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -61,19 +70,33 @@ export default function ApprovedDutyScreen() {
     init();
   }, [loadApproved]);
 
+  // Reload on focus
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("focus", () => {
+      loadApproved();
+    });
+    return unsubscribe;
+  }, [navigation, loadApproved]);
+
   const onRefresh = async () => {
     setRefreshing(true);
     await loadApproved();
     setRefreshing(false);
   };
 
-  // Filter: only show duties from today onwards in the list
+  // Filter: only show duties from today onwards in the list, sorted descending
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const futureApproved = approvedRequests.filter((r) => {
-    const d = parseDateStr(r.date);
-    return d && d >= today;
-  });
+  const futureApproved = approvedRequests
+    .filter((r) => {
+      const d = parseDateStr(r.date);
+      return d >= today;
+    })
+    .sort((a, b) => {
+      const dateA = parseDateStr(a.date);
+      const dateB = parseDateStr(b.date);
+      return dateB.getTime() - dateA.getTime();
+    });
 
   const handleReject = async (request: DutyRequest) => {
     if (!request.id) return;
@@ -99,7 +122,7 @@ export default function ApprovedDutyScreen() {
     }
   };
 
-  // Admin swipe: right to reject, left to cancel
+  // Admin swipe: left to cancel, right to reject
   const renderRightActions = (request: DutyRequest) => {
     return (
       <TouchableOpacity
@@ -170,14 +193,14 @@ export default function ApprovedDutyScreen() {
 
     weekDays.forEach((day, i) =>
       cells.push(
-        <View key={`header-${i}`} className="flex-1 items-center py-1">
+        <View key={`header-${i}`} className="flex-1 items-center py-0.5">
           <Text className="text-xs text-muted font-medium">{day}</Text>
         </View>
       )
     );
 
     for (let i = 0; i < firstDay; i++) {
-      cells.push(<View key={`empty-${i}`} className="flex-1 items-center py-1" />);
+      cells.push(<View key={`empty-${i}`} className="flex-1 items-center py-0.5" />);
     }
 
     for (let day = 1; day <= daysInMonth; day++) {
@@ -188,11 +211,11 @@ export default function ApprovedDutyScreen() {
       cells.push(
         <TouchableOpacity
           key={`day-${day}`}
-          className="flex-1 items-center py-1"
+          className="flex-1 items-center py-0.5"
           onPress={() => handleDateTap(day)}
         >
           <View
-            className={`w-7 h-7 rounded-full items-center justify-center ${
+            className={`w-6 h-6 rounded-full items-center justify-center ${
               isToday ? "bg-primary" : ""
             }`}
           >
@@ -209,7 +232,7 @@ export default function ApprovedDutyScreen() {
               {approvedForDay.slice(0, 3).map((r, idx) => (
                 <View
                   key={idx}
-                  style={{ backgroundColor: getDutyColor(r.dutyType), width: 6, height: 6, borderRadius: 3 }}
+                  style={{ backgroundColor: getDutyColor(r.dutyType), width: 5, height: 5, borderRadius: 2.5 }}
                 />
               ))}
             </View>
@@ -279,7 +302,7 @@ export default function ApprovedDutyScreen() {
   return (
     <ScreenContainer className="flex-1">
       {/* Header */}
-      <View className="items-center py-3 border-b border-border">
+      <View className="items-center py-2 border-b border-border">
         <Text className="text-lg font-bold text-foreground">Approved duty</Text>
         {isAdmin && (
           <Text className="text-xs text-muted mt-1">
@@ -288,12 +311,21 @@ export default function ApprovedDutyScreen() {
         )}
       </View>
 
-      {/* Approved List - Top Half (future duties only) */}
+      {/* Approved List - Top (future duties only, descending) */}
       <View className="mx-3 mt-2 border border-border rounded-xl overflow-hidden" style={{ maxHeight: "35%" }}>
         {futureApproved.length === 0 ? (
-          <View className="items-center justify-center py-8">
-            <Text className="text-muted text-sm">No upcoming approved duties</Text>
-          </View>
+          <FlatList
+            data={[]}
+            renderItem={() => null}
+            ListEmptyComponent={
+              <View className="items-center justify-center py-8">
+                <Text className="text-muted text-sm">No upcoming approved duties</Text>
+              </View>
+            }
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+          />
         ) : (
           <FlatList
             data={futureApproved}
@@ -306,37 +338,39 @@ export default function ApprovedDutyScreen() {
         )}
       </View>
 
-      {/* Calendar - Bottom Half */}
-      <View className="mx-3 mt-2 mb-2 border border-border rounded-xl p-2 bg-surface flex-1">
+      {/* Calendar - 1/3 of screen */}
+      <View
+        className="mx-3 mt-2 mb-2 border border-border rounded-xl p-2 bg-surface"
+        style={{ height: CALENDAR_HEIGHT }}
+      >
         <View className="flex-row items-center justify-between mb-1">
           <View className="flex-row items-center">
             <TouchableOpacity onPress={prevMonth} className="p-1">
-              <MaterialIcons name="chevron-left" size={22} color="#11181C" />
+              <MaterialIcons name="chevron-left" size={20} color="#11181C" />
             </TouchableOpacity>
             <TouchableOpacity onPress={nextMonth} className="p-1">
-              <MaterialIcons name="chevron-right" size={22} color="#11181C" />
+              <MaterialIcons name="chevron-right" size={20} color="#11181C" />
             </TouchableOpacity>
             <Text className="text-sm font-bold text-foreground ml-2">
               {String(currentMonth + 1).padStart(2, "0")}/{currentYear}
             </Text>
           </View>
-          {/* Legend */}
-          <View className="flex-row items-center gap-2">
+          <View className="flex-row items-center gap-1">
             <View className="flex-row items-center">
-              <View style={{ backgroundColor: "#EF4444", width: 8, height: 8, borderRadius: 4 }} />
-              <Text className="text-xs text-muted ml-0.5">A</Text>
+              <View style={{ backgroundColor: "#EF4444", width: 6, height: 6, borderRadius: 3 }} />
+              <Text className="text-[10px] text-muted ml-0.5">A</Text>
             </View>
             <View className="flex-row items-center">
-              <View style={{ backgroundColor: "#3B82F6", width: 8, height: 8, borderRadius: 4 }} />
-              <Text className="text-xs text-muted ml-0.5">P</Text>
+              <View style={{ backgroundColor: "#3B82F6", width: 6, height: 6, borderRadius: 3 }} />
+              <Text className="text-[10px] text-muted ml-0.5">P</Text>
             </View>
             <View className="flex-row items-center">
-              <View style={{ backgroundColor: "#22C55E", width: 8, height: 8, borderRadius: 4 }} />
-              <Text className="text-xs text-muted ml-0.5">9-17</Text>
+              <View style={{ backgroundColor: "#22C55E", width: 6, height: 6, borderRadius: 3 }} />
+              <Text className="text-[10px] text-muted ml-0.5">9-17</Text>
             </View>
             <View className="flex-row items-center">
-              <View style={{ backgroundColor: "#86EFAC", width: 8, height: 8, borderRadius: 4 }} />
-              <Text className="text-xs text-muted ml-0.5">9-13</Text>
+              <View style={{ backgroundColor: "#86EFAC", width: 6, height: 6, borderRadius: 3 }} />
+              <Text className="text-[10px] text-muted ml-0.5">9-13</Text>
             </View>
           </View>
         </View>

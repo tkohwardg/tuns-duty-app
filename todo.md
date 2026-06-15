@@ -30,3 +30,10 @@
 - [x] Request Duty page: add 3 more request slots (total 5)
 - [x] Request Duty page: prohibit submitting date without duty option selected
 - [x] Admin Approve page: sort pending list by duty date ascending then requested date ascending
+- [x] All lists sorted in descending order (newest first)
+- [x] All lists support pull-down-to-refresh
+- [x] Request Duty page: neither date nor duty option allowed blank on submit
+- [x] Request Duty page: clear all slots after submission
+- [x] My Requests list instantly updated after submission (no manual refresh needed)
+- [x] All calendars occupy only 1/3 of screen height
+- [x] Admin Approve page: add Selected Staff Name and Total working hours this week display (calculated from most recent past Sunday)
