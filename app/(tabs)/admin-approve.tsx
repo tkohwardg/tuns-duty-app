@@ -19,8 +19,7 @@ import {
   type DutyRequest,
 } from "@/lib/firebase";
 import { updateSheetStatus } from "@/lib/google-sheets";
-import { sendPushToUser } from "@/lib/notifications";
-import { useSettings } from "@/lib/settings-context";
+import { useSettings, type DutyOption } from "@/lib/settings-context";
 import {
   getDutyColor,
   getDaysInMonth,
@@ -109,7 +108,7 @@ export default function AdminApproveScreen() {
         return d >= week.sunday && d <= week.saturday;
       })
       .reduce((total, r) => {
-        const opt = settings.dutyOptions.find((o) => o.label === r.dutyType);
+        const opt = settings.dutyOptions.find((o: DutyOption) => o.label === r.dutyType);
         return total + (opt ? opt.hours : getDutyHours(r.dutyType));
       }, 0);
   };
@@ -127,12 +126,6 @@ export default function AdminApproveScreen() {
             try {
               await updateDutyRequestStatus(request.id!, "approved");
               await updateSheetStatus(request.id!, "approved");
-              // Send push notification to the requester
-              await sendPushToUser(
-                request.userId,
-                "Duty Approved",
-                `Your ${request.dutyType} duty on ${request.date} has been approved.`
-              );
               setPendingRequests((prev) => prev.filter((r) => r.id !== request.id));
               setApprovedRequests((prev) => [{ ...request, status: "approved" }, ...prev]);
             } catch (error) {
@@ -158,12 +151,6 @@ export default function AdminApproveScreen() {
             try {
               await updateDutyRequestStatus(request.id!, "rejected");
               await updateSheetStatus(request.id!, "rejected");
-              // Send push notification to the requester
-              await sendPushToUser(
-                request.userId,
-                "Duty Rejected",
-                `Your ${request.dutyType} duty on ${request.date} has been rejected.`
-              );
               setPendingRequests((prev) => prev.filter((r) => r.id !== request.id));
             } catch (error) {
               Alert.alert("Error", "Failed to reject request.");
@@ -289,7 +276,7 @@ export default function AdminApproveScreen() {
               {approvedForDay.slice(0, 3).map((r, idx) => (
                 <View
                   key={idx}
-                  style={{ backgroundColor: (settings.dutyOptions.find((o) => o.label === r.dutyType)?.color || getDutyColor(r.dutyType)), width: 5, height: 5, borderRadius: 2.5 }}
+                  style={{ backgroundColor: getDutyColor(r.dutyType), width: 5, height: 5, borderRadius: 2.5 }}
                 />
               ))}
             </View>

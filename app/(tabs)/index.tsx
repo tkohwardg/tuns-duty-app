@@ -15,7 +15,6 @@ import { useSettings } from "@/lib/settings-context";
 import { router } from "expo-router";
 import { addDutyRequest, checkDuplicateRequest, type DutyType } from "@/lib/firebase";
 import { submitToGoogleSheet } from "@/lib/google-sheets";
-import { registerForPushNotifications } from "@/lib/notifications";
 
 interface RequestRow {
   date: Date | null;

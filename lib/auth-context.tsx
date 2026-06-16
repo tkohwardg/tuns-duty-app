@@ -2,7 +2,6 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { loginWithEmail, logout as firebaseLogout, onAuthChange, db, COLLECTIONS } from "./firebase";
 import type { UserProfile } from "./firebase";
-import { registerForPushNotifications } from "./notifications";
 import { doc, getDoc } from "firebase/firestore";
 import type { User } from "firebase/auth";
 
@@ -70,12 +69,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await AsyncStorage.setItem("userProfile", JSON.stringify(profile));
     }
 
-    // Register for push notifications
-    try {
-      await registerForPushNotifications(firebaseUser.uid);
-    } catch (e) {
-      console.log("Push notification registration skipped:", e);
-    }
   };
 
   const logout = async () => {
