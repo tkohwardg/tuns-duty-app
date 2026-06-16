@@ -70,6 +70,7 @@ export default function ApprovedDutyScreen() {
     init();
   }, [loadApproved]);
 
+  // Reload on focus
   useEffect(() => {
     const unsubscribe = navigation.addListener("focus", () => {
       loadApproved();
@@ -83,7 +84,7 @@ export default function ApprovedDutyScreen() {
     setRefreshing(false);
   };
 
-  // Filter: only show duties from today onwards in the list, sorted ascending
+  // Filter: only show duties from today onwards in the list, sorted ascending (sooner date at top)
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const futureApproved = approvedRequests
@@ -150,27 +151,31 @@ export default function ApprovedDutyScreen() {
   };
 
   // Admin swipe: left to cancel, right to reject
-  const renderRightActions = (request: DutyRequest) => (
-    <TouchableOpacity
-      onPress={() => handleCancel(request)}
-      style={{ backgroundColor: "#F59E0B" }}
-      className="justify-center items-center px-5"
-    >
-      <MaterialIcons name="cancel" size={22} color="#fff" />
-      <Text className="text-white text-xs font-semibold mt-1">Cancel</Text>
-    </TouchableOpacity>
-  );
+  const renderRightActions = (request: DutyRequest) => {
+    return (
+      <TouchableOpacity
+        onPress={() => handleCancel(request)}
+        style={{ backgroundColor: "#F59E0B" }}
+        className="justify-center items-center px-5"
+      >
+        <MaterialIcons name="cancel" size={22} color="#fff" />
+        <Text className="text-white text-xs font-semibold mt-1">Cancel</Text>
+      </TouchableOpacity>
+    );
+  };
 
-  const renderLeftActions = (request: DutyRequest) => (
-    <TouchableOpacity
-      onPress={() => handleReject(request)}
-      style={{ backgroundColor: "#EF4444" }}
-      className="justify-center items-center px-5"
-    >
-      <MaterialIcons name="close" size={22} color="#fff" />
-      <Text className="text-white text-xs font-semibold mt-1">Reject</Text>
-    </TouchableOpacity>
-  );
+  const renderLeftActions = (request: DutyRequest) => {
+    return (
+      <TouchableOpacity
+        onPress={() => handleReject(request)}
+        style={{ backgroundColor: "#EF4444" }}
+        className="justify-center items-center px-5"
+      >
+        <MaterialIcons name="close" size={22} color="#fff" />
+        <Text className="text-white text-xs font-semibold mt-1">Reject</Text>
+      </TouchableOpacity>
+    );
+  };
 
   const prevMonth = () => {
     if (currentMonth === 0) {
@@ -190,14 +195,9 @@ export default function ApprovedDutyScreen() {
     }
   };
 
-  // Get approved duties for any date (supports overflow months)
-  const getApprovedForAnyDate = (day: number, month: number, year: number): DutyRequest[] => {
-    const dateStr = formatDateStr(day, month, year);
-    return approvedRequests.filter((r) => r.date === dateStr);
-  };
-
   const getApprovedForDate = (day: number): DutyRequest[] => {
-    return getApprovedForAnyDate(day, currentMonth, currentYear);
+    const dateStr = formatDateStr(day, currentMonth, currentYear);
+    return approvedRequests.filter((r) => r.date === dateStr);
   };
 
   const handleDateTap = (day: number) => {
@@ -209,16 +209,6 @@ export default function ApprovedDutyScreen() {
     }
   };
 
-  const handleOverflowDateTap = (day: number, month: number, year: number) => {
-    const duties = getApprovedForAnyDate(day, month, year);
-    if (duties.length > 0) {
-      setSelectedDateDuties(duties);
-      setSelectedDateStr(formatDateStr(day, month, year));
-      setShowDutyModal(true);
-    }
-  };
-
-  // Calendar render with overflow days
   const renderCalendar = () => {
     const daysInMonth = getDaysInMonth(currentYear, currentMonth);
     const firstDay = getFirstDayOfMonth(currentYear, currentMonth);
@@ -226,19 +216,9 @@ export default function ApprovedDutyScreen() {
     const isCurrentMonth =
       todayDate.getMonth() === currentMonth && todayDate.getFullYear() === currentYear;
 
-    // Previous month info for leading overflow
-    const prevMonthNum = currentMonth === 0 ? 11 : currentMonth - 1;
-    const prevYearNum = currentMonth === 0 ? currentYear - 1 : currentYear;
-    const daysInPrevMonth = getDaysInMonth(prevYearNum, prevMonthNum);
-
-    // Next month info for trailing overflow
-    const nextMonthNum = currentMonth === 11 ? 0 : currentMonth + 1;
-    const nextYearNum = currentMonth === 11 ? currentYear + 1 : currentYear;
-
     const weekDays = ["日", "一", "二", "三", "四", "五", "六"];
     const cells: React.ReactNode[] = [];
 
-    // Header row
     weekDays.forEach((day, i) =>
       cells.push(
         <View key={`header-${i}`} className="flex-1 items-center py-0.5">
@@ -247,36 +227,10 @@ export default function ApprovedDutyScreen() {
       )
     );
 
-    // Leading overflow days (previous month)
     for (let i = 0; i < firstDay; i++) {
-      const overflowDay = daysInPrevMonth - firstDay + 1 + i;
-      const approvedForDay = getApprovedForAnyDate(overflowDay, prevMonthNum, prevYearNum);
-      const hasApproved = approvedForDay.length > 0;
-
-      cells.push(
-        <TouchableOpacity
-          key={`prev-${i}`}
-          className="flex-1 items-center py-0.5"
-          onPress={() => handleOverflowDateTap(overflowDay, prevMonthNum, prevYearNum)}
-        >
-          <View className="w-6 h-6 rounded-full items-center justify-center">
-            <Text className="text-xs" style={{ color: "#9CA3AF" }}>{overflowDay}</Text>
-          </View>
-          {hasApproved && (
-            <View className="flex-row mt-0.5 gap-0.5">
-              {approvedForDay.slice(0, 3).map((r, idx) => (
-                <View
-                  key={idx}
-                  style={{ backgroundColor: getDutyColor(r.dutyType), width: 5, height: 5, borderRadius: 2.5, opacity: 0.6 }}
-                />
-              ))}
-            </View>
-          )}
-        </TouchableOpacity>
-      );
+      cells.push(<View key={`empty-${i}`} className="flex-1 items-center py-0.5" />);
     }
 
-    // Current month days
     for (let day = 1; day <= daysInMonth; day++) {
       const isToday = isCurrentMonth && todayDate.getDate() === day;
       const approvedForDay = getApprovedForDate(day);
@@ -315,40 +269,6 @@ export default function ApprovedDutyScreen() {
       );
     }
 
-    // Trailing overflow days (next month) - fill remaining cells to complete the last row
-    const totalCellsSoFar = cells.length - 7; // subtract header row
-    const remainder = totalCellsSoFar % 7;
-    if (remainder > 0) {
-      const trailingCount = 7 - remainder;
-      for (let i = 1; i <= trailingCount; i++) {
-        const approvedForDay = getApprovedForAnyDate(i, nextMonthNum, nextYearNum);
-        const hasApproved = approvedForDay.length > 0;
-
-        cells.push(
-          <TouchableOpacity
-            key={`next-${i}`}
-            className="flex-1 items-center py-0.5"
-            onPress={() => handleOverflowDateTap(i, nextMonthNum, nextYearNum)}
-          >
-            <View className="w-6 h-6 rounded-full items-center justify-center">
-              <Text className="text-xs" style={{ color: "#9CA3AF" }}>{i}</Text>
-            </View>
-            {hasApproved && (
-              <View className="flex-row mt-0.5 gap-0.5">
-                {approvedForDay.slice(0, 3).map((r, idx) => (
-                  <View
-                    key={idx}
-                    style={{ backgroundColor: getDutyColor(r.dutyType), width: 5, height: 5, borderRadius: 2.5, opacity: 0.6 }}
-                  />
-                ))}
-              </View>
-            )}
-          </TouchableOpacity>
-        );
-      }
-    }
-
-    // Build rows
     const rows: React.ReactNode[] = [];
     for (let i = 0; i < cells.length; i += 7) {
       rows.push(
@@ -419,7 +339,7 @@ export default function ApprovedDutyScreen() {
         )}
       </View>
 
-      {/* Approved List - Top (future duties only) */}
+      {/* Approved List - Top (future duties only, descending) */}
       <View className="mx-3 mt-2 border border-border rounded-xl overflow-hidden" style={{ maxHeight: "35%" }}>
         {futureApproved.length === 0 ? (
           <FlatList
