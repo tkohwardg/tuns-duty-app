@@ -19,6 +19,8 @@ import {
   type DutyRequest,
 } from "@/lib/firebase";
 import { updateSheetStatus } from "@/lib/google-sheets";
+import { sendPushToUser } from "@/lib/notifications";
+import { useSettings } from "@/lib/settings-context";
 import {
   getDutyColor,
   getDaysInMonth,
@@ -44,6 +46,7 @@ function parseDateStr(dateStr: string): Date {
 
 export default function AdminApproveScreen() {
   const { isAdmin } = useAuthContext();
+  const { settings } = useSettings();
   const [pendingRequests, setPendingRequests] = useState<DutyRequest[]>([]);
   const [approvedRequests, setApprovedRequests] = useState<DutyRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -61,11 +64,11 @@ export default function AdminApproveScreen() {
         getAllPendingRequests(),
         getAllApprovedRequests(),
       ]);
-      // Sort pending by duty date DESCENDING, then by createdAt ASCENDING (earlier requester first)
+      // Sort pending by duty date ASCENDING, then by createdAt ASCENDING (earlier requester first)
       const sortedPending = pending.sort((a, b) => {
         const dateA = parseDateStr(a.date);
         const dateB = parseDateStr(b.date);
-        const dateDiff = dateB.getTime() - dateA.getTime();
+        const dateDiff = dateA.getTime() - dateB.getTime();
         if (dateDiff !== 0) return dateDiff;
         const createdA = a.createdAt?.toMillis?.() || 0;
         const createdB = b.createdAt?.toMillis?.() || 0;
@@ -105,7 +108,10 @@ export default function AdminApproveScreen() {
         if (!d) return false;
         return d >= week.sunday && d <= week.saturday;
       })
-      .reduce((total, r) => total + getDutyHours(r.dutyType), 0);
+      .reduce((total, r) => {
+        const opt = settings.dutyOptions.find((o) => o.label === r.dutyType);
+        return total + (opt ? opt.hours : getDutyHours(r.dutyType));
+      }, 0);
   };
 
   const handleApprove = (request: DutyRequest) => {
@@ -121,6 +127,12 @@ export default function AdminApproveScreen() {
             try {
               await updateDutyRequestStatus(request.id!, "approved");
               await updateSheetStatus(request.id!, "approved");
+              // Send push notification to the requester
+              await sendPushToUser(
+                request.userId,
+                "Duty Approved",
+                `Your ${request.dutyType} duty on ${request.date} has been approved.`
+              );
               setPendingRequests((prev) => prev.filter((r) => r.id !== request.id));
               setApprovedRequests((prev) => [{ ...request, status: "approved" }, ...prev]);
             } catch (error) {
@@ -146,6 +158,12 @@ export default function AdminApproveScreen() {
             try {
               await updateDutyRequestStatus(request.id!, "rejected");
               await updateSheetStatus(request.id!, "rejected");
+              // Send push notification to the requester
+              await sendPushToUser(
+                request.userId,
+                "Duty Rejected",
+                `Your ${request.dutyType} duty on ${request.date} has been rejected.`
+              );
               setPendingRequests((prev) => prev.filter((r) => r.id !== request.id));
             } catch (error) {
               Alert.alert("Error", "Failed to reject request.");
@@ -271,7 +289,7 @@ export default function AdminApproveScreen() {
               {approvedForDay.slice(0, 3).map((r, idx) => (
                 <View
                   key={idx}
-                  style={{ backgroundColor: getDutyColor(r.dutyType), width: 5, height: 5, borderRadius: 2.5 }}
+                  style={{ backgroundColor: (settings.dutyOptions.find((o) => o.label === r.dutyType)?.color || getDutyColor(r.dutyType)), width: 5, height: 5, borderRadius: 2.5 }}
                 />
               ))}
             </View>

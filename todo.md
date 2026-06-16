@@ -37,9 +37,16 @@
 - [x] My Requests list instantly updated after submission (no manual refresh needed)
 - [x] All calendars occupy only 1/3 of screen height
 - [x] Admin Approve page: add Selected Staff Name and Total working hours this week display (calculated from most recent past Sunday)
-- [ ] Duplicate date check: prevent same user submitting same duty type on same day (different types allowed)
-- [ ] Admin confirmation dialog before approve/reject actions
-- [ ] Working hours calculation: A=7h, P=7h, 0900-1300=4h, 0900-1700=7h; when admin taps a pending request, calculate that staff's total approved hours for the week (Sun-Sat) containing the duty date
+- [x] Duplicate date check: prevent same user submitting same duty type on same day (different types allowed)
+- [x] Admin confirmation dialog before approve/reject actions
+- [x] Working hours calculation: A=7h, P=7h, 0900-1300=4h, 0900-1700=7h; when admin taps a pending request, calculate that staff's total approved hours for the week (Sun-Sat) containing the duty date
 - [x] Duplicate date check: prevent same user submitting same duty type on same day (different types allowed)
 - [x] Admin confirmation dialog before approve/reject actions
 - [x] Working hours: A=7h, P=7h, 0900-1300=4h, 0900-1700=7h; calculated based on the week (Sun-Sat) containing the duty date
+- [x] Fix all list sorting: ascending by duty date, then ascending by submission date
+- [x] Push Notification: request permission on first login
+- [x] Push Notification: send notification when Admin approves/rejects a request
+- [x] Admin Settings page: Ward name configuration (global, shared by all users)
+- [x] Admin Settings page: Add/delete duty options with custom hours
+- [x] Admin Settings page: Change own password
+- [x] Admin Settings page: Export approved duties for selected period as CSV/PDF

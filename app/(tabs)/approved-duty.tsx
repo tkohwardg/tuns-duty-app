@@ -18,6 +18,7 @@ import {
   type DutyRequest,
 } from "@/lib/firebase";
 import { updateSheetStatus } from "@/lib/google-sheets";
+import { sendPushToUser } from "@/lib/notifications";
 import {
   getDutyColor,
   getDaysInMonth,
@@ -84,7 +85,7 @@ export default function ApprovedDutyScreen() {
     setRefreshing(false);
   };
 
-  // Filter: only show duties from today onwards in the list, sorted descending
+  // Filter: only show duties from today onwards in the list, sorted ascending (sooner date at top)
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const futureApproved = approvedRequests
@@ -95,7 +96,11 @@ export default function ApprovedDutyScreen() {
     .sort((a, b) => {
       const dateA = parseDateStr(a.date);
       const dateB = parseDateStr(b.date);
-      return dateB.getTime() - dateA.getTime();
+      const dateDiff = dateA.getTime() - dateB.getTime();
+      if (dateDiff !== 0) return dateDiff;
+      const createdA = a.createdAt?.toMillis?.() || 0;
+      const createdB = b.createdAt?.toMillis?.() || 0;
+      return createdA - createdB;
     });
 
   const handleReject = (request: DutyRequest) => {
@@ -112,6 +117,11 @@ export default function ApprovedDutyScreen() {
             try {
               await updateDutyRequestStatus(request.id!, "rejected");
               await updateSheetStatus(request.id!, "rejected");
+              await sendPushToUser(
+                request.userId,
+                "Duty Rejected",
+                `Your ${request.dutyType} duty on ${request.date} has been rejected.`
+              );
               setApprovedRequests((prev) => prev.filter((r) => r.id !== request.id));
             } catch (error) {
               Alert.alert("Error", "Failed to reject request.");
@@ -136,6 +146,11 @@ export default function ApprovedDutyScreen() {
             try {
               await updateDutyRequestStatus(request.id!, "cancelled");
               await updateSheetStatus(request.id!, "cancelled");
+              await sendPushToUser(
+                request.userId,
+                "Duty Cancelled",
+                `Your ${request.dutyType} duty on ${request.date} has been cancelled by admin.`
+              );
               setApprovedRequests((prev) => prev.filter((r) => r.id !== request.id));
             } catch (error) {
               Alert.alert("Error", "Failed to cancel request.");

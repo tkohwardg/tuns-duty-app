@@ -44,7 +44,7 @@ if (Platform.OS === "web") {
 }
 
 // Initialize Firestore
-const db = getFirestore(app);
+export const db = getFirestore(app);
 
 // Auth functions
 export const loginWithEmail = async (email: string, password: string) => {
@@ -69,8 +69,8 @@ export const COLLECTIONS = {
   DUTY_REQUESTS: "duty_requests",
 } as const;
 
-// Duty request types
-export type DutyType = "A" | "P" | "0900-1700" | "0900-1300";
+// Duty request types - dynamic, admin can add custom options via Settings
+export type DutyType = string;
 export type RequestStatus = "pending" | "approved" | "rejected" | "cancelled";
 
 export interface DutyRequest {
@@ -118,13 +118,13 @@ export const getUserDutyRequests = async (userId: string, status?: RequestStatus
       collection(db, COLLECTIONS.DUTY_REQUESTS),
       where("userId", "==", userId),
       where("status", "==", status),
-      orderBy("createdAt", "desc")
+      orderBy("createdAt", "asc")
     );
   } else {
     q = query(
       collection(db, COLLECTIONS.DUTY_REQUESTS),
       where("userId", "==", userId),
-      orderBy("createdAt", "desc")
+      orderBy("createdAt", "asc")
     );
   }
   const snapshot = await getDocs(q);
@@ -135,7 +135,7 @@ export const getAllPendingRequests = async () => {
   const q = query(
     collection(db, COLLECTIONS.DUTY_REQUESTS),
     where("status", "==", "pending"),
-    orderBy("createdAt", "desc")
+    orderBy("createdAt", "asc")
   );
   const snapshot = await getDocs(q);
   return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as DutyRequest));
@@ -145,7 +145,7 @@ export const getAllApprovedRequests = async () => {
   const q = query(
     collection(db, COLLECTIONS.DUTY_REQUESTS),
     where("status", "==", "approved"),
-    orderBy("createdAt", "desc")
+    orderBy("createdAt", "asc")
   );
   const snapshot = await getDocs(q);
   return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as DutyRequest));
@@ -174,4 +174,4 @@ export const checkDuplicateRequest = async (
   });
 };
 
-export { auth, db };
+export { auth };

@@ -46,16 +46,24 @@ export default function MyRequestsScreen() {
         getUserDutyRequests(userProfile.uid, "pending"),
         getUserDutyRequests(userProfile.uid, "rejected"),
       ]);
-      // Sort by duty date DESCENDING (newest first)
+      // Sort by duty date ASCENDING (sooner date at top), then by createdAt ASCENDING
       const sortedPending = pending.sort((a, b) => {
         const dateA = parseDateStr(a.date);
         const dateB = parseDateStr(b.date);
-        return dateB.getTime() - dateA.getTime();
+        const dateDiff = dateA.getTime() - dateB.getTime();
+        if (dateDiff !== 0) return dateDiff;
+        const createdA = a.createdAt?.toMillis?.() || 0;
+        const createdB = b.createdAt?.toMillis?.() || 0;
+        return createdA - createdB;
       });
       const sortedRejected = rejected.sort((a, b) => {
         const dateA = parseDateStr(a.date);
         const dateB = parseDateStr(b.date);
-        return dateB.getTime() - dateA.getTime();
+        const dateDiff = dateA.getTime() - dateB.getTime();
+        if (dateDiff !== 0) return dateDiff;
+        const createdA = a.createdAt?.toMillis?.() || 0;
+        const createdB = b.createdAt?.toMillis?.() || 0;
+        return createdA - createdB;
       });
       setPendingRequests(sortedPending);
       setRejectedRequests(sortedRejected);

@@ -1,13 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import {
-  loginWithEmail,
-  logout as firebaseLogout,
-  onAuthChange,
-  type UserProfile,
-} from "./firebase";
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { db, COLLECTIONS } from "./firebase";
+import { loginWithEmail, logout as firebaseLogout, onAuthChange, db, COLLECTIONS } from "./firebase";
+import type { UserProfile } from "./firebase";
+import { registerForPushNotifications } from "./notifications";
+import { doc, getDoc } from "firebase/firestore";
 import type { User } from "firebase/auth";
 
 interface AuthContextType {
@@ -37,16 +33,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthChange(async (firebaseUser) => {
       setUser(firebaseUser);
       if (firebaseUser) {
-        // Fetch user profile from Firestore
         try {
-          const userDoc = await getDoc(doc(db, COLLECTIONS.USERS, firebaseUser.uid));
-          if (userDoc.exists()) {
-            const profile = userDoc.data() as UserProfile;
+          const userDocRef = doc(db, COLLECTIONS.USERS, firebaseUser.uid);
+          const userDocSnap = await getDoc(userDocRef);
+          if (userDocSnap.exists()) {
+            const profile = userDocSnap.data() as UserProfile;
             setUserProfile(profile);
             await AsyncStorage.setItem("userProfile", JSON.stringify(profile));
           }
         } catch (error) {
-          // Try to load from local storage as fallback
           const cached = await AsyncStorage.getItem("userProfile");
           if (cached) {
             setUserProfile(JSON.parse(cached));
@@ -66,12 +61,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const credential = await loginWithEmail(email, password);
     const firebaseUser = credential.user;
 
-    // Fetch or create user profile
-    const userDoc = await getDoc(doc(db, COLLECTIONS.USERS, firebaseUser.uid));
-    if (userDoc.exists()) {
-      const profile = userDoc.data() as UserProfile;
+    // Fetch user profile
+    const userDocRef = doc(db, COLLECTIONS.USERS, firebaseUser.uid);
+    const userDocSnap = await getDoc(userDocRef);
+    if (userDocSnap.exists()) {
+      const profile = userDocSnap.data() as UserProfile;
       setUserProfile(profile);
       await AsyncStorage.setItem("userProfile", JSON.stringify(profile));
+    }
+
+    // Register for push notifications
+    try {
+      await registerForPushNotifications(firebaseUser.uid);
+    } catch (e) {
+      console.log("Push notification registration skipped:", e);
     }
   };
 

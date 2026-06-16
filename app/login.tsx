@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useAuthContext } from "@/lib/auth-context";
+import { useSettings } from "@/lib/settings-context";
 import { router } from "expo-router";
 
 export default function LoginScreen() {
@@ -18,6 +19,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuthContext();
+  const { settings } = useSettings();
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -53,7 +55,7 @@ export default function LoginScreen() {
         <View className="flex-1 justify-center px-8">
           {/* Header */}
           <View className="items-center mb-12">
-            <Text className="text-4xl font-bold text-foreground">Ward 8S</Text>
+            <Text className="text-4xl font-bold text-foreground">{settings.wardName}</Text>
             <Text className="text-xl text-muted mt-2">TUNS Request Duty</Text>
           </View>
 

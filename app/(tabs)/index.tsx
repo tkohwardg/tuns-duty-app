@@ -11,11 +11,11 @@ import {
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useAuthContext } from "@/lib/auth-context";
+import { useSettings } from "@/lib/settings-context";
 import { router } from "expo-router";
 import { addDutyRequest, checkDuplicateRequest, type DutyType } from "@/lib/firebase";
 import { submitToGoogleSheet } from "@/lib/google-sheets";
-
-const DUTY_OPTIONS: DutyType[] = ["A", "P", "0900-1700", "0900-1300"];
+import { registerForPushNotifications } from "@/lib/notifications";
 
 interface RequestRow {
   date: Date | null;
@@ -67,6 +67,8 @@ const INITIAL_REQUESTS: RequestRow[] = [
 
 export default function RequestDutyScreen() {
   const { userProfile, logout } = useAuthContext();
+  const { settings } = useSettings();
+  const dutyOptions = settings.dutyOptions.map((o) => o.label);
   const [requests, setRequests] = useState<RequestRow[]>(
     INITIAL_REQUESTS.map((r) => ({ ...r }))
   );
@@ -190,7 +192,7 @@ export default function RequestDutyScreen() {
       >
         {/* Header */}
         <View className="items-center mt-4 mb-6">
-          <Text className="text-3xl font-bold text-foreground">Ward 8S</Text>
+          <Text className="text-3xl font-bold text-foreground">{settings.wardName}</Text>
           <Text className="text-xl text-muted mt-1">TUNS Request duty</Text>
         </View>
 
@@ -323,10 +325,10 @@ export default function RequestDutyScreen() {
                 <Text className="text-base" style={{ color: "#3F51B5" }}>Cancel</Text>
               </TouchableOpacity>
             </View>
-            {DUTY_OPTIONS.map((duty) => (
+            {dutyOptions.map((duty) => (
               <TouchableOpacity
                 key={duty}
-                onPress={() => handleDutySelect(showDutyPicker!, duty)}
+                onPress={() => handleDutySelect(showDutyPicker!, duty as DutyType)}
                 className="py-4 px-4 border-b border-border"
               >
                 <Text className="text-lg text-foreground">{duty}</Text>

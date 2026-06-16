@@ -66,6 +66,16 @@ export default function TabLayout() {
           href: isAdmin ? undefined : null,
         }}
       />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: "Settings",
+          tabBarIcon: ({ color }) => (
+            <MaterialIcons size={24} name="settings" color={color} />
+          ),
+          href: isAdmin ? undefined : null,
+        }}
+      />
     </Tabs>
   );
 }
