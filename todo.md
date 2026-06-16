@@ -59,5 +59,3 @@
 - [x] Change date input from list picker to calendar form
 - [x] Date restriction: earliest selectable = today + 7 days, latest = today + 8 weeks
 - [x] Date restriction: when today is 15-26th, same month 15-26th dates are not selectable
-- [x] Calendar: add left/right arrow indicators and swipe gesture to change month
-- [x] Approved Duty: highlight weekly hours in red bold when >= 14 hours

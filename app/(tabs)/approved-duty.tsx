@@ -9,7 +9,6 @@ import {
   Alert,
   RefreshControl,
   Dimensions,
-  PanResponder,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useAuthContext } from "@/lib/auth-context";
@@ -29,8 +28,6 @@ import {
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Swipeable } from "react-native-gesture-handler";
 import { useNavigation } from "@react-navigation/native";
-import { useColors } from "@/hooks/use-colors";
-import { useSettings } from "@/lib/settings-context";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 const CALENDAR_HEIGHT = SCREEN_HEIGHT / 3;
@@ -44,9 +41,7 @@ function parseDateStr(dateStr: string): Date {
 }
 
 export default function ApprovedDutyScreen() {
-  const { isAdmin, userProfile } = useAuthContext();
-  const colors = useColors();
-  const { settings } = useSettings();
+  const { isAdmin } = useAuthContext();
   const navigation = useNavigation();
   const [approvedRequests, setApprovedRequests] = useState<DutyRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -194,23 +189,6 @@ export default function ApprovedDutyScreen() {
       setCurrentMonth(currentMonth + 1);
     }
   };
-
-  // Swipe gesture for month navigation
-  const calendarPanResponder = React.useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        return Math.abs(gestureState.dx) > 20 && Math.abs(gestureState.dy) < 30;
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dx > 50) {
-          prevMonth();
-        } else if (gestureState.dx < -50) {
-          nextMonth();
-        }
-      },
-    })
-  ).current;
 
   // Get approved duties for any date (supports overflow months)
   const getApprovedForAnyDate = (day: number, month: number, year: number): DutyRequest[] => {
@@ -431,7 +409,7 @@ export default function ApprovedDutyScreen() {
 
   return (
     <ScreenContainer className="flex-1">
-      {/* Header with weekly hours */}
+      {/* Header */}
       <View className="items-center py-2 border-b border-border">
         <Text className="text-lg font-bold text-foreground">Approved duty</Text>
         {isAdmin && (
@@ -439,48 +417,6 @@ export default function ApprovedDutyScreen() {
             ← Swipe left to cancel | Swipe right to reject →
           </Text>
         )}
-        {(() => {
-          // Calculate this week's total hours (Sun-Sat)
-          const now = new Date();
-          const dayOfWeek = now.getDay();
-          const weekStart = new Date(now);
-          weekStart.setDate(now.getDate() - dayOfWeek);
-          weekStart.setHours(0, 0, 0, 0);
-          const weekEnd = new Date(weekStart);
-          weekEnd.setDate(weekStart.getDate() + 6);
-          weekEnd.setHours(23, 59, 59, 999);
-
-          const weekDuties = approvedRequests.filter((r) => {
-            if (!isAdmin && userProfile && r.userId !== userProfile.uid) return false;
-            const d = parseDateStr(r.date);
-            return d >= weekStart && d <= weekEnd;
-          });
-
-          let totalHours = 0;
-          for (const duty of weekDuties) {
-            const option = settings.dutyOptions.find((o) => o.label === duty.dutyType);
-            totalHours += option ? option.hours : 0;
-          }
-
-          const isOverLimit = totalHours >= 14;
-
-          return (
-            <View className="flex-row items-center mt-1">
-              <Text className="text-xs text-muted">This week (Sun-Sat): </Text>
-              <Text
-                className={`text-xs ${isOverLimit ? "font-bold" : ""}`}
-                style={isOverLimit ? { color: "#EF4444" } : { color: colors.muted }}
-              >
-                {totalHours}h
-              </Text>
-              {isOverLimit && (
-                <Text className="text-xs font-bold" style={{ color: "#EF4444" }}>
-                  {" "}(≥14h)
-                </Text>
-              )}
-            </View>
-          );
-        })()}
       </View>
 
       {/* Approved List - Top (future duties only) */}
@@ -514,27 +450,18 @@ export default function ApprovedDutyScreen() {
       <View
         className="mx-3 mt-2 mb-2 border border-border rounded-xl p-2 bg-surface"
         style={{ height: CALENDAR_HEIGHT }}
-        {...calendarPanResponder.panHandlers}
       >
         <View className="flex-row items-center justify-between mb-1">
           <View className="flex-row items-center">
-            <TouchableOpacity
-              onPress={prevMonth}
-              className="p-1 rounded-full"
-              style={{ backgroundColor: colors.background }}
-            >
-              <MaterialIcons name="chevron-left" size={22} color={colors.foreground} />
+            <TouchableOpacity onPress={prevMonth} className="p-1">
+              <MaterialIcons name="chevron-left" size={20} color="#11181C" />
             </TouchableOpacity>
-            <Text className="text-sm font-bold text-foreground mx-2">
+            <TouchableOpacity onPress={nextMonth} className="p-1">
+              <MaterialIcons name="chevron-right" size={20} color="#11181C" />
+            </TouchableOpacity>
+            <Text className="text-sm font-bold text-foreground ml-2">
               {String(currentMonth + 1).padStart(2, "0")}/{currentYear}
             </Text>
-            <TouchableOpacity
-              onPress={nextMonth}
-              className="p-1 rounded-full"
-              style={{ backgroundColor: colors.background }}
-            >
-              <MaterialIcons name="chevron-right" size={22} color={colors.foreground} />
-            </TouchableOpacity>
           </View>
           <View className="flex-row items-center gap-1">
             <View className="flex-row items-center">

@@ -1,7 +1,6 @@
-import React, { useState, useRef } from "react";
-import { Text, View, TouchableOpacity, Modal, PanResponder } from "react-native";
+import React, { useState, useMemo } from "react";
+import { Text, View, TouchableOpacity, Modal } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { useColors } from "@/hooks/use-colors";
 
 /**
  * Date restriction rules:
@@ -80,7 +79,6 @@ export function DatePickerCalendar({
   title = "Select Date",
   noRestrictions = false,
 }: DatePickerCalendarProps) {
-  const colors = useColors();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -104,23 +102,6 @@ export function DatePickerCalendar({
       setViewMonth(viewMonth + 1);
     }
   };
-
-  // Swipe gesture for month navigation
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        return Math.abs(gestureState.dx) > 20 && Math.abs(gestureState.dy) < 30;
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dx > 50) {
-          prevMonth();
-        } else if (gestureState.dx < -50) {
-          nextMonth();
-        }
-      },
-    })
-  ).current;
 
   const isSelectable = (day: number, month: number, year: number): boolean => {
     if (noRestrictions) return true;
@@ -250,36 +231,21 @@ export function DatePickerCalendar({
             {title}
           </Text>
 
-          {/* Month navigation with clear arrows */}
+          {/* Month navigation */}
           <View className="flex-row items-center justify-between mb-2">
-            <TouchableOpacity
-              onPress={prevMonth}
-              className="p-2 rounded-full"
-              style={{ backgroundColor: colors.surface }}
-            >
-              <MaterialIcons name="chevron-left" size={28} color={colors.foreground} />
+            <TouchableOpacity onPress={prevMonth} className="p-2">
+              <MaterialIcons name="chevron-left" size={24} color="#11181C" />
             </TouchableOpacity>
             <Text className="text-base font-bold text-foreground">
               {monthNames[viewMonth]} {viewYear}
             </Text>
-            <TouchableOpacity
-              onPress={nextMonth}
-              className="p-2 rounded-full"
-              style={{ backgroundColor: colors.surface }}
-            >
-              <MaterialIcons name="chevron-right" size={28} color={colors.foreground} />
+            <TouchableOpacity onPress={nextMonth} className="p-2">
+              <MaterialIcons name="chevron-right" size={24} color="#11181C" />
             </TouchableOpacity>
           </View>
 
-          {/* Swipe hint */}
-          <Text className="text-[10px] text-muted text-center mb-1">
-            ← Swipe or tap arrows to change month →
-          </Text>
-
-          {/* Calendar grid with swipe support */}
-          <View {...panResponder.panHandlers}>
-            {renderCalendar()}
-          </View>
+          {/* Calendar grid */}
+          {renderCalendar()}
 
           {/* Info text for restrictions */}
           {!noRestrictions && (
