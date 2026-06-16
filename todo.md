@@ -50,3 +50,4 @@
 - [x] Admin Settings page: Add/delete duty options with custom hours
 - [x] Admin Settings page: Change own password
 - [x] Admin Settings page: Export approved duties for selected period as CSV/PDF
+- [x] Fix: Firestore composite index errors - remove orderBy from queries, sort client-side instead

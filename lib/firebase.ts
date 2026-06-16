@@ -16,7 +16,6 @@ import {
   getDocs,
   query,
   where,
-  orderBy,
   Timestamp,
 } from "firebase/firestore";
 import { Platform } from "react-native";
@@ -117,38 +116,52 @@ export const getUserDutyRequests = async (userId: string, status?: RequestStatus
     q = query(
       collection(db, COLLECTIONS.DUTY_REQUESTS),
       where("userId", "==", userId),
-      where("status", "==", status),
-      orderBy("createdAt", "asc")
+      where("status", "==", status)
     );
   } else {
     q = query(
       collection(db, COLLECTIONS.DUTY_REQUESTS),
-      where("userId", "==", userId),
-      orderBy("createdAt", "asc")
+      where("userId", "==", userId)
     );
   }
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as DutyRequest));
+  const results = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as DutyRequest));
+  // Sort client-side to avoid needing composite index
+  return results.sort((a, b) => {
+    const timeA = a.createdAt?.toMillis?.() || 0;
+    const timeB = b.createdAt?.toMillis?.() || 0;
+    return timeA - timeB;
+  });
 };
 
 export const getAllPendingRequests = async () => {
   const q = query(
     collection(db, COLLECTIONS.DUTY_REQUESTS),
-    where("status", "==", "pending"),
-    orderBy("createdAt", "asc")
+    where("status", "==", "pending")
   );
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as DutyRequest));
+  const results = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as DutyRequest));
+  // Sort client-side to avoid needing composite index
+  return results.sort((a, b) => {
+    const timeA = a.createdAt?.toMillis?.() || 0;
+    const timeB = b.createdAt?.toMillis?.() || 0;
+    return timeA - timeB;
+  });
 };
 
 export const getAllApprovedRequests = async () => {
   const q = query(
     collection(db, COLLECTIONS.DUTY_REQUESTS),
-    where("status", "==", "approved"),
-    orderBy("createdAt", "asc")
+    where("status", "==", "approved")
   );
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as DutyRequest));
+  const results = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as DutyRequest));
+  // Sort client-side to avoid needing composite index
+  return results.sort((a, b) => {
+    const timeA = a.createdAt?.toMillis?.() || 0;
+    const timeB = b.createdAt?.toMillis?.() || 0;
+    return timeA - timeB;
+  });
 };
 
 /**
