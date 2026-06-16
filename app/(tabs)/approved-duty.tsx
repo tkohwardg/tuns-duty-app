@@ -98,28 +98,52 @@ export default function ApprovedDutyScreen() {
       return dateB.getTime() - dateA.getTime();
     });
 
-  const handleReject = async (request: DutyRequest) => {
+  const handleReject = (request: DutyRequest) => {
     if (!request.id) return;
-    try {
-      await updateDutyRequestStatus(request.id, "rejected");
-      await updateSheetStatus(request.id, "rejected");
-      setApprovedRequests((prev) => prev.filter((r) => r.id !== request.id));
-      Alert.alert("Done", "Request rejected.");
-    } catch (error) {
-      Alert.alert("Error", "Failed to reject request.");
-    }
+    Alert.alert(
+      "Confirm Reject",
+      `Reject ${request.userName}'s "${request.dutyType}" on ${request.date}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Reject",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await updateDutyRequestStatus(request.id!, "rejected");
+              await updateSheetStatus(request.id!, "rejected");
+              setApprovedRequests((prev) => prev.filter((r) => r.id !== request.id));
+            } catch (error) {
+              Alert.alert("Error", "Failed to reject request.");
+            }
+          },
+        },
+      ]
+    );
   };
 
-  const handleCancel = async (request: DutyRequest) => {
+  const handleCancel = (request: DutyRequest) => {
     if (!request.id) return;
-    try {
-      await updateDutyRequestStatus(request.id, "cancelled");
-      await updateSheetStatus(request.id, "cancelled");
-      setApprovedRequests((prev) => prev.filter((r) => r.id !== request.id));
-      Alert.alert("Done", "Request cancelled.");
-    } catch (error) {
-      Alert.alert("Error", "Failed to cancel request.");
-    }
+    Alert.alert(
+      "Confirm Cancel",
+      `Cancel ${request.userName}'s "${request.dutyType}" on ${request.date}?`,
+      [
+        { text: "No", style: "cancel" },
+        {
+          text: "Yes, Cancel",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await updateDutyRequestStatus(request.id!, "cancelled");
+              await updateSheetStatus(request.id!, "cancelled");
+              setApprovedRequests((prev) => prev.filter((r) => r.id !== request.id));
+            } catch (error) {
+              Alert.alert("Error", "Failed to cancel request.");
+            }
+          },
+        },
+      ]
+    );
   };
 
   // Admin swipe: left to cancel, right to reject

@@ -25,11 +25,11 @@
 - [x] Modal on calendar date tap showing approved duties list
 - [x] Admin swipe right to reject, swipe left to approve on pending list
 - [x] Admin swipe right to reject, swipe left to cancel on approved list
-- [x] My Requests page: sort duty list by duty date ascending
+- [x] My Requests page: sort duty list by duty date descending
 - [x] My Requests page: show loading indicator during cancel swipe action
 - [x] Request Duty page: add 3 more request slots (total 5)
 - [x] Request Duty page: prohibit submitting date without duty option selected
-- [x] Admin Approve page: sort pending list by duty date ascending then requested date ascending
+- [x] Admin Approve page: sort pending list by duty date descending then requested date ascending
 - [x] All lists sorted in descending order (newest first)
 - [x] All lists support pull-down-to-refresh
 - [x] Request Duty page: neither date nor duty option allowed blank on submit
@@ -37,3 +37,9 @@
 - [x] My Requests list instantly updated after submission (no manual refresh needed)
 - [x] All calendars occupy only 1/3 of screen height
 - [x] Admin Approve page: add Selected Staff Name and Total working hours this week display (calculated from most recent past Sunday)
+- [ ] Duplicate date check: prevent same user submitting same duty type on same day (different types allowed)
+- [ ] Admin confirmation dialog before approve/reject actions
+- [ ] Working hours calculation: A=7h, P=7h, 0900-1300=4h, 0900-1700=7h; when admin taps a pending request, calculate that staff's total approved hours for the week (Sun-Sat) containing the duty date
+- [x] Duplicate date check: prevent same user submitting same duty type on same day (different types allowed)
+- [x] Admin confirmation dialog before approve/reject actions
+- [x] Working hours: A=7h, P=7h, 0900-1300=4h, 0900-1700=7h; calculated based on the week (Sun-Sat) containing the duty date

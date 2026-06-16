@@ -25,8 +25,7 @@ import {
   getFirstDayOfMonth,
   formatDateStr,
   getDutyHours,
-  getMostRecentSunday,
-  getWeekEndSaturday,
+  getWeekForDate,
   parseDateString,
 } from "@/lib/duty-colors";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -54,7 +53,7 @@ export default function AdminApproveScreen() {
   const [selectedDateDuties, setSelectedDateDuties] = useState<DutyRequest[]>([]);
   const [showDutyModal, setShowDutyModal] = useState(false);
   const [selectedDateStr, setSelectedDateStr] = useState("");
-  const [selectedStaff, setSelectedStaff] = useState<{ name: string; userId: string } | null>(null);
+  const [selectedStaff, setSelectedStaff] = useState<{ name: string; userId: string; dutyDate: string } | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -94,44 +93,67 @@ export default function AdminApproveScreen() {
     setRefreshing(false);
   };
 
-  // Calculate total working hours for selected staff in current week (Sun-Sat)
+  // Calculate total working hours for selected staff in the week (Sun-Sat) containing the duty date
   const getWeeklyHours = (): number => {
     if (!selectedStaff) return 0;
-    const sunday = getMostRecentSunday();
-    const saturday = getWeekEndSaturday(sunday);
+    const week = getWeekForDate(selectedStaff.dutyDate);
+    if (!week) return 0;
     return approvedRequests
       .filter((r) => {
         if (r.userId !== selectedStaff.userId) return false;
         const d = parseDateString(r.date);
         if (!d) return false;
-        return d >= sunday && d <= saturday;
+        return d >= week.sunday && d <= week.saturday;
       })
       .reduce((total, r) => total + getDutyHours(r.dutyType), 0);
   };
 
-  const handleApprove = async (request: DutyRequest) => {
+  const handleApprove = (request: DutyRequest) => {
     if (!request.id) return;
-    try {
-      await updateDutyRequestStatus(request.id, "approved");
-      await updateSheetStatus(request.id, "approved");
-      setPendingRequests((prev) => prev.filter((r) => r.id !== request.id));
-      setApprovedRequests((prev) => [{ ...request, status: "approved" }, ...prev]);
-      Alert.alert("Done", "Request approved.");
-    } catch (error) {
-      Alert.alert("Error", "Failed to approve request.");
-    }
+    Alert.alert(
+      "Confirm Approve",
+      `Approve ${request.userName}'s "${request.dutyType}" request on ${request.date}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Approve",
+          onPress: async () => {
+            try {
+              await updateDutyRequestStatus(request.id!, "approved");
+              await updateSheetStatus(request.id!, "approved");
+              setPendingRequests((prev) => prev.filter((r) => r.id !== request.id));
+              setApprovedRequests((prev) => [{ ...request, status: "approved" }, ...prev]);
+            } catch (error) {
+              Alert.alert("Error", "Failed to approve request.");
+            }
+          },
+        },
+      ]
+    );
   };
 
-  const handleReject = async (request: DutyRequest) => {
+  const handleReject = (request: DutyRequest) => {
     if (!request.id) return;
-    try {
-      await updateDutyRequestStatus(request.id, "rejected");
-      await updateSheetStatus(request.id, "rejected");
-      setPendingRequests((prev) => prev.filter((r) => r.id !== request.id));
-      Alert.alert("Done", "Request rejected.");
-    } catch (error) {
-      Alert.alert("Error", "Failed to reject request.");
-    }
+    Alert.alert(
+      "Confirm Reject",
+      `Reject ${request.userName}'s "${request.dutyType}" request on ${request.date}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Reject",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await updateDutyRequestStatus(request.id!, "rejected");
+              await updateSheetStatus(request.id!, "rejected");
+              setPendingRequests((prev) => prev.filter((r) => r.id !== request.id));
+            } catch (error) {
+              Alert.alert("Error", "Failed to reject request.");
+            }
+          },
+        },
+      ]
+    );
   };
 
   const prevMonth = () => {
@@ -167,7 +189,7 @@ export default function AdminApproveScreen() {
   };
 
   const handleStaffTap = (request: DutyRequest) => {
-    setSelectedStaff({ name: request.userName, userId: request.userId });
+    setSelectedStaff({ name: request.userName, userId: request.userId, dutyDate: request.date });
   };
 
   // Swipe left to approve

@@ -12,7 +12,7 @@ import {
 import { ScreenContainer } from "@/components/screen-container";
 import { useAuthContext } from "@/lib/auth-context";
 import { router } from "expo-router";
-import { addDutyRequest, type DutyType } from "@/lib/firebase";
+import { addDutyRequest, checkDuplicateRequest, type DutyType } from "@/lib/firebase";
 import { submitToGoogleSheet } from "@/lib/google-sheets";
 
 const DUTY_OPTIONS: DutyType[] = ["A", "P", "0900-1700", "0900-1300"];
@@ -122,6 +122,25 @@ export default function RequestDutyScreen() {
 
     setIsSubmitting(true);
     try {
+      // Check for duplicates first
+      for (const req of validRequests) {
+        if (!req.date || !req.dutyType) continue;
+        const dateStr = formatDate(req.date);
+        const isDuplicate = await checkDuplicateRequest(
+          userProfile.uid,
+          dateStr,
+          req.dutyType
+        );
+        if (isDuplicate) {
+          Alert.alert(
+            "Duplicate Request",
+            `You already have a pending/approved "${req.dutyType}" request on ${dateStr}. Please choose a different date or duty type.`
+          );
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
       for (const req of validRequests) {
         if (!req.date || !req.dutyType) continue;
 

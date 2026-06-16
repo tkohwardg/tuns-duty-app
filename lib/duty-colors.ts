@@ -51,8 +51,8 @@ export function getWeekEndSaturday(sunday: Date): Date {
 
 /**
  * Calculate working hours for a duty type
- * A = AM shift (7 hours), P = PM shift (7 hours)
- * 0900-1700 = 8 hours, 0900-1300 = 4 hours
+ * A = 7 hours, P = 7 hours
+ * 0900-1700 = 7 hours, 0900-1300 = 4 hours
  */
 export function getDutyHours(dutyType: DutyType): number {
   switch (dutyType) {
@@ -61,12 +61,24 @@ export function getDutyHours(dutyType: DutyType): number {
     case "P":
       return 7;
     case "0900-1700":
-      return 8;
+      return 7;
     case "0900-1300":
       return 4;
     default:
       return 0;
   }
+}
+
+/**
+ * Get the week (Sun-Sat) that contains a specific date.
+ * Returns { sunday, saturday } for that week.
+ */
+export function getWeekForDate(dateStr: string): { sunday: Date; saturday: Date } | null {
+  const d = parseDateString(dateStr);
+  if (!d) return null;
+  const sunday = getMostRecentSunday(d);
+  const saturday = getWeekEndSaturday(sunday);
+  return { sunday, saturday };
 }
 
 /**

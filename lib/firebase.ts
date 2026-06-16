@@ -151,4 +151,27 @@ export const getAllApprovedRequests = async () => {
   return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as DutyRequest));
 };
 
+/**
+ * Check if a user already has a pending/approved request for the same date and duty type.
+ * Returns true if duplicate exists.
+ */
+export const checkDuplicateRequest = async (
+  userId: string,
+  date: string,
+  dutyType: DutyType
+): Promise<boolean> => {
+  const q = query(
+    collection(db, COLLECTIONS.DUTY_REQUESTS),
+    where("userId", "==", userId),
+    where("date", "==", date),
+    where("dutyType", "==", dutyType)
+  );
+  const snapshot = await getDocs(q);
+  // Check if any non-cancelled/non-rejected request exists
+  return snapshot.docs.some((doc) => {
+    const data = doc.data();
+    return data.status === "pending" || data.status === "approved";
+  });
+};
+
 export { auth, db };
