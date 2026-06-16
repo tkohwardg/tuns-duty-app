@@ -51,3 +51,7 @@
 - [x] Admin Settings page: Change own password
 - [x] Admin Settings page: Export approved duties for selected period as CSV/PDF
 - [x] Fix: Firestore composite index errors - remove orderBy from queries, sort client-side instead
+- [x] Admin Approve page: batch approve/reject (multi-select mode)
+- [x] Calendar fix: show next month days in last week row with lighter text color
+- [x] Calendar fix: show duty dots on next-month overflow days
+- [x] Calendar fix: calendar only occupies 1/3 of screen height, rest for list
