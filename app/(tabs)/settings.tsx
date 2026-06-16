@@ -9,6 +9,7 @@ import {
   Modal,
   ActivityIndicator,
   Platform,
+  KeyboardAvoidingView,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useAuthContext } from "@/lib/auth-context";
@@ -16,6 +17,7 @@ import { useSettings, type DutyOption } from "@/lib/settings-context";
 import { getAllApprovedRequests, type DutyRequest } from "@/lib/firebase";
 import { getAuth, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { DatePickerCalendar } from "@/components/date-picker-calendar";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 
@@ -175,18 +177,6 @@ export default function SettingsScreen() {
   };
 
   // Export handlers
-  const generateDateRange = (): Date[] => {
-    const dates: Date[] = [];
-    const now = new Date();
-    // Generate last 90 days + next 90 days for selection
-    for (let i = -90; i <= 90; i++) {
-      const d = new Date(now);
-      d.setDate(d.getDate() + i);
-      d.setHours(0, 0, 0, 0);
-      dates.push(d);
-    }
-    return dates;
-  };
 
   const handleExport = async () => {
     if (!exportStartDate || !exportEndDate) {
@@ -270,7 +260,6 @@ export default function SettingsScreen() {
     );
   }
 
-  const dateOptions = generateDateRange();
 
   return (
     <ScreenContainer className="flex-1">
@@ -433,7 +422,11 @@ export default function SettingsScreen() {
         animationType="slide"
         onRequestClose={() => setShowAddDuty(false)}
       >
-        <View className="flex-1 justify-end" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          className="flex-1 justify-end"
+          style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+        >
           <View className="bg-background rounded-t-3xl p-5">
             <Text className="text-lg font-bold text-foreground mb-4">Add Duty Option</Text>
 
@@ -493,94 +486,34 @@ export default function SettingsScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
-      {/* Start Date Picker Modal */}
-      <Modal
+      {/* Start Date Picker Calendar */}
+      <DatePickerCalendar
         visible={showStartDatePicker}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowStartDatePicker(false)}
-      >
-        <View className="flex-1 justify-end" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
-          <View className="bg-background rounded-t-3xl p-4 max-h-96">
-            <View className="flex-row justify-between items-center mb-3">
-              <Text className="text-lg font-bold text-foreground">Select Start Date</Text>
-              <TouchableOpacity onPress={() => setShowStartDatePicker(false)}>
-                <Text className="text-base" style={{ color: "#3F51B5" }}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView>
-              {dateOptions.map((date) => {
-                const dateStr = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
-                return (
-                  <TouchableOpacity
-                    key={date.toISOString()}
-                    onPress={() => {
-                      setExportStartDate(dateStr);
-                      setShowStartDatePicker(false);
-                    }}
-                    className="py-3 px-4 border-b border-border"
-                  >
-                    <Text className="text-base text-foreground">
-                      {date.toLocaleDateString("en-GB", {
-                        weekday: "short",
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setShowStartDatePicker(false)}
+        onSelectDate={(date) => {
+          const dateStr = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+          setExportStartDate(dateStr);
+          setShowStartDatePicker(false);
+        }}
+        title="Select Start Date"
+        noRestrictions
+      />
 
-      {/* End Date Picker Modal */}
-      <Modal
+      {/* End Date Picker Calendar */}
+      <DatePickerCalendar
         visible={showEndDatePicker}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowEndDatePicker(false)}
-      >
-        <View className="flex-1 justify-end" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
-          <View className="bg-background rounded-t-3xl p-4 max-h-96">
-            <View className="flex-row justify-between items-center mb-3">
-              <Text className="text-lg font-bold text-foreground">Select End Date</Text>
-              <TouchableOpacity onPress={() => setShowEndDatePicker(false)}>
-                <Text className="text-base" style={{ color: "#3F51B5" }}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView>
-              {dateOptions.map((date) => {
-                const dateStr = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
-                return (
-                  <TouchableOpacity
-                    key={date.toISOString()}
-                    onPress={() => {
-                      setExportEndDate(dateStr);
-                      setShowEndDatePicker(false);
-                    }}
-                    className="py-3 px-4 border-b border-border"
-                  >
-                    <Text className="text-base text-foreground">
-                      {date.toLocaleDateString("en-GB", {
-                        weekday: "short",
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setShowEndDatePicker(false)}
+        onSelectDate={(date) => {
+          const dateStr = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+          setExportEndDate(dateStr);
+          setShowEndDatePicker(false);
+        }}
+        title="Select End Date"
+        noRestrictions
+      />
     </ScreenContainer>
   );
 }

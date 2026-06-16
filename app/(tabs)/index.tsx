@@ -6,7 +6,6 @@ import {
   Alert,
   ScrollView,
   Modal,
-  FlatList,
   ActivityIndicator,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
@@ -15,24 +14,11 @@ import { useSettings } from "@/lib/settings-context";
 import { router } from "expo-router";
 import { addDutyRequest, checkDuplicateRequest, type DutyType } from "@/lib/firebase";
 import { submitToGoogleSheet } from "@/lib/google-sheets";
+import { DatePickerCalendar } from "@/components/date-picker-calendar";
 
 interface RequestRow {
   date: Date | null;
   dutyType: DutyType | null;
-}
-
-function getMinDate(): Date {
-  const d = new Date();
-  d.setDate(d.getDate() + 7);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-function getMaxDate(): Date {
-  const d = new Date();
-  d.setDate(d.getDate() + 7 + 56);
-  d.setHours(23, 59, 59, 999);
-  return d;
 }
 
 function formatDate(date: Date): string {
@@ -42,18 +28,6 @@ function formatDate(date: Date): string {
 function formatToday(): string {
   const d = new Date();
   return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
-}
-
-function getAvailableDates(): Date[] {
-  const dates: Date[] = [];
-  const min = getMinDate();
-  const max = getMaxDate();
-  const current = new Date(min);
-  while (current <= max) {
-    dates.push(new Date(current));
-    current.setDate(current.getDate() + 1);
-  }
-  return dates;
 }
 
 const INITIAL_REQUESTS: RequestRow[] = [
@@ -74,8 +48,6 @@ export default function RequestDutyScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState<number | null>(null);
   const [showDutyPicker, setShowDutyPicker] = useState<number | null>(null);
-
-  const availableDates = getAvailableDates();
 
   const handleReset = (index: number) => {
     const updated = [...requests];
@@ -271,43 +243,18 @@ export default function RequestDutyScreen() {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Date Picker Modal */}
-      <Modal
+      {/* Date Picker Calendar Modal */}
+      <DatePickerCalendar
         visible={showDatePicker !== null}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowDatePicker(null)}
-      >
-        <View className="flex-1 justify-end" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
-          <View className="bg-background rounded-t-3xl p-4 max-h-96">
-            <View className="flex-row justify-between items-center mb-4">
-              <Text className="text-lg font-bold text-foreground">Select Date</Text>
-              <TouchableOpacity onPress={() => setShowDatePicker(null)}>
-                <Text className="text-base" style={{ color: "#3F51B5" }}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-            <FlatList
-              data={availableDates}
-              keyExtractor={(item) => item.toISOString()}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  onPress={() => handleDateSelect(showDatePicker!, item)}
-                  className="py-3 px-4 border-b border-border"
-                >
-                  <Text className="text-base text-foreground">
-                    {item.toLocaleDateString("en-GB", {
-                      weekday: "short",
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            />
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setShowDatePicker(null)}
+        onSelectDate={(date) => {
+          if (showDatePicker !== null) {
+            handleDateSelect(showDatePicker, date);
+          }
+        }}
+        selectedDate={showDatePicker !== null ? requests[showDatePicker].date : null}
+        title="Select Date"
+      />
 
       {/* Duty Picker Modal */}
       <Modal

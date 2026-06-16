@@ -55,3 +55,7 @@
 - [x] Calendar fix: show next month days in last week row with lighter text color
 - [x] Calendar fix: show duty dots on next-month overflow days
 - [x] Calendar fix: calendar only occupies 1/3 of screen height, rest for list
+- [x] Fix: Settings page keyboard blocks add duty option input (KeyboardAvoidingView)
+- [x] Change date input from list picker to calendar form
+- [x] Date restriction: earliest selectable = today + 7 days, latest = today + 8 weeks
+- [x] Date restriction: when today is 15-26th, same month 15-26th dates are not selectable
