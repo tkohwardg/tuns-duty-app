@@ -1,5 +1,13 @@
-import React, { useState, useRef } from "react";
-import { Text, View, TouchableOpacity, Modal, PanResponder } from "react-native";
+import React, { useState, useRef, useCallback } from "react";
+import {
+  Text,
+  View,
+  TouchableOpacity,
+  Modal,
+  PanResponder,
+  GestureResponderEvent,
+  PanResponderGestureState,
+} from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useColors } from "@/hooks/use-colors";
 
@@ -87,36 +95,49 @@ export function DatePickerCalendar({
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [viewYear, setViewYear] = useState(today.getFullYear());
 
-  const prevMonth = () => {
-    if (viewMonth === 0) {
-      setViewMonth(11);
-      setViewYear(viewYear - 1);
-    } else {
-      setViewMonth(viewMonth - 1);
-    }
-  };
+  const prevMonth = useCallback(() => {
+    setViewMonth((m) => {
+      if (m === 0) {
+        setViewYear((y) => y - 1);
+        return 11;
+      }
+      return m - 1;
+    });
+  }, []);
 
-  const nextMonth = () => {
-    if (viewMonth === 11) {
-      setViewMonth(0);
-      setViewYear(viewYear + 1);
-    } else {
-      setViewMonth(viewMonth + 1);
-    }
-  };
+  const nextMonth = useCallback(() => {
+    setViewMonth((m) => {
+      if (m === 11) {
+        setViewYear((y) => y + 1);
+        return 0;
+      }
+      return m + 1;
+    });
+  }, []);
 
-  // Swipe gesture for month navigation
+  // Use refs to avoid stale closure in PanResponder
+  const prevMonthRef = useRef(prevMonth);
+  const nextMonthRef = useRef(nextMonth);
+  prevMonthRef.current = prevMonth;
+  nextMonthRef.current = nextMonth;
+
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        return Math.abs(gestureState.dx) > 20 && Math.abs(gestureState.dy) < 30;
+      onMoveShouldSetPanResponder: (
+        _: GestureResponderEvent,
+        gestureState: PanResponderGestureState
+      ) => {
+        return Math.abs(gestureState.dx) > 30 && Math.abs(gestureState.dy) < 40;
       },
-      onPanResponderRelease: (_, gestureState) => {
+      onPanResponderRelease: (
+        _: GestureResponderEvent,
+        gestureState: PanResponderGestureState
+      ) => {
         if (gestureState.dx > 50) {
-          prevMonth();
+          prevMonthRef.current();
         } else if (gestureState.dx < -50) {
-          nextMonth();
+          nextMonthRef.current();
         }
       },
     })
@@ -153,10 +174,10 @@ export function DatePickerCalendar({
 
     // Header row
     rows.push(
-      <View key="header" className="flex-row mb-1">
+      <View key="header" className="flex-row mb-2">
         {weekDays.map((day, i) => (
           <View key={`h-${i}`} className="flex-1 items-center py-1">
-            <Text className="text-xs text-muted font-medium">{day}</Text>
+            <Text className="text-sm text-muted font-medium">{day}</Text>
           </View>
         ))}
       </View>
@@ -188,7 +209,7 @@ export function DatePickerCalendar({
     for (let i = 0; i < allCells.length; i += 7) {
       const week = allCells.slice(i, i + 7);
       rows.push(
-        <View key={`row-${i}`} className="flex-row">
+        <View key={`row-${i}`} className="flex-row" style={{ marginVertical: 3 }}>
           {week.map((cell, idx) => {
             const selectable = isSelectable(cell.day, cell.month, cell.year);
             const cellDate = new Date(cell.year, cell.month, cell.day);
@@ -198,25 +219,33 @@ export function DatePickerCalendar({
             return (
               <TouchableOpacity
                 key={`${i}-${idx}`}
-                className="flex-1 items-center py-1.5"
+                className="flex-1 items-center"
+                style={{ paddingVertical: 4 }}
                 onPress={() => handleDayPress(cell.day, cell.month, cell.year)}
                 disabled={!selectable}
               >
                 <View
-                  className={`w-8 h-8 rounded-full items-center justify-center ${
+                  className={`w-9 h-9 rounded-full items-center justify-center ${
                     isSelected ? "bg-primary" : isToday ? "border border-primary" : ""
                   }`}
                 >
                   <Text
-                    className={`text-sm ${
+                    className={`text-base ${
                       isSelected
                         ? "text-white font-bold"
                         : !selectable
-                        ? "text-muted opacity-30"
+                        ? "opacity-30"
                         : cell.isOverflow
-                        ? "text-muted"
+                        ? ""
                         : "text-foreground"
                     }`}
+                    style={
+                      !selectable && !isSelected
+                        ? { color: "#9CA3AF" }
+                        : cell.isOverflow && !isSelected
+                        ? { color: "#9CA3AF" }
+                        : undefined
+                    }
                   >
                     {cell.day}
                   </Text>
@@ -243,15 +272,15 @@ export function DatePickerCalendar({
       animationType="fade"
       onRequestClose={onClose}
     >
-      <View className="flex-1 justify-center px-6" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
-        <View className="bg-background rounded-2xl p-4">
+      <View className="flex-1 justify-center px-4" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+        <View className="bg-background rounded-2xl p-5">
           {/* Title */}
-          <Text className="text-lg font-bold text-foreground text-center mb-3">
+          <Text className="text-lg font-bold text-foreground text-center mb-4">
             {title}
           </Text>
 
           {/* Month navigation with clear arrows */}
-          <View className="flex-row items-center justify-between mb-2">
+          <View className="flex-row items-center justify-between mb-3">
             <TouchableOpacity
               onPress={prevMonth}
               className="p-2 rounded-full"
@@ -259,7 +288,7 @@ export function DatePickerCalendar({
             >
               <MaterialIcons name="chevron-left" size={28} color={colors.foreground} />
             </TouchableOpacity>
-            <Text className="text-base font-bold text-foreground">
+            <Text className="text-lg font-bold text-foreground">
               {monthNames[viewMonth]} {viewYear}
             </Text>
             <TouchableOpacity
@@ -271,11 +300,6 @@ export function DatePickerCalendar({
             </TouchableOpacity>
           </View>
 
-          {/* Swipe hint */}
-          <Text className="text-[10px] text-muted text-center mb-1">
-            ← Swipe or tap arrows to change month →
-          </Text>
-
           {/* Calendar grid with swipe support */}
           <View {...panResponder.panHandlers}>
             {renderCalendar()}
@@ -283,7 +307,7 @@ export function DatePickerCalendar({
 
           {/* Info text for restrictions */}
           {!noRestrictions && (
-            <Text className="text-xs text-muted text-center mt-2">
+            <Text className="text-xs text-muted text-center mt-3">
               Selectable: 7 days from now to 8 weeks ahead
             </Text>
           )}
@@ -291,9 +315,9 @@ export function DatePickerCalendar({
           {/* Cancel button */}
           <TouchableOpacity
             onPress={onClose}
-            className="mt-3 py-2.5 rounded-xl items-center border border-border"
+            className="mt-4 py-3 rounded-xl items-center border border-border"
           >
-            <Text className="text-foreground font-semibold">Cancel</Text>
+            <Text className="text-foreground font-semibold text-base">Cancel</Text>
           </TouchableOpacity>
         </View>
       </View>

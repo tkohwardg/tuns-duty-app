@@ -261,24 +261,26 @@ export default function AdminApproveScreen() {
     );
   };
 
-  // Calendar navigation
-  const prevMonth = () => {
-    if (currentMonth === 0) {
-      setCurrentMonth(11);
-      setCurrentYear(currentYear - 1);
-    } else {
-      setCurrentMonth(currentMonth - 1);
-    }
-  };
+  // Calendar navigation - using functional setState to avoid stale closure
+  const prevMonth = useCallback(() => {
+    setCurrentMonth((m) => {
+      if (m === 0) {
+        setCurrentYear((y) => y - 1);
+        return 11;
+      }
+      return m - 1;
+    });
+  }, []);
 
-  const nextMonth = () => {
-    if (currentMonth === 11) {
-      setCurrentMonth(0);
-      setCurrentYear(currentYear + 1);
-    } else {
-      setCurrentMonth(currentMonth + 1);
-    }
-  };
+  const nextMonth = useCallback(() => {
+    setCurrentMonth((m) => {
+      if (m === 11) {
+        setCurrentYear((y) => y + 1);
+        return 0;
+      }
+      return m + 1;
+    });
+  }, []);
 
   // Get approved duties for any date (supports overflow months)
   const getApprovedForAnyDate = (day: number, month: number, year: number): DutyRequest[] => {
@@ -599,39 +601,39 @@ export default function AdminApproveScreen() {
         </View>
       )}
 
-      {/* Calendar - 1/3 of screen */}
+      {/* Calendar - uses available space, larger */}
       <View
-        className="mx-3 border border-border rounded-xl p-2 bg-surface"
+        className="mx-3 border border-border rounded-xl p-3 bg-surface"
         style={{ height: CALENDAR_HEIGHT }}
       >
-        <View className="flex-row items-center justify-between mb-1">
+        <View className="flex-row items-center justify-between mb-2">
           <View className="flex-row items-center">
-            <TouchableOpacity onPress={prevMonth} className="p-1">
-              <MaterialIcons name="chevron-left" size={20} color="#11181C" />
+            <TouchableOpacity onPress={prevMonth} className="p-2 rounded-full" style={{ backgroundColor: '#f5f5f5' }}>
+              <MaterialIcons name="chevron-left" size={24} color="#11181C" />
             </TouchableOpacity>
-            <TouchableOpacity onPress={nextMonth} className="p-1">
-              <MaterialIcons name="chevron-right" size={20} color="#11181C" />
-            </TouchableOpacity>
-            <Text className="text-sm font-bold text-foreground ml-2">
+            <Text className="text-base font-bold text-foreground mx-3">
               {String(currentMonth + 1).padStart(2, "0")}/{currentYear}
             </Text>
+            <TouchableOpacity onPress={nextMonth} className="p-2 rounded-full" style={{ backgroundColor: '#f5f5f5' }}>
+              <MaterialIcons name="chevron-right" size={24} color="#11181C" />
+            </TouchableOpacity>
           </View>
-          <View className="flex-row items-center gap-1">
+          <View className="flex-row items-center gap-2">
             <View className="flex-row items-center">
-              <View style={{ backgroundColor: "#EF4444", width: 6, height: 6, borderRadius: 3 }} />
-              <Text className="text-[10px] text-muted ml-0.5">A</Text>
+              <View style={{ backgroundColor: "#EF4444", width: 8, height: 8, borderRadius: 4 }} />
+              <Text className="text-xs text-muted ml-1">A</Text>
             </View>
             <View className="flex-row items-center">
-              <View style={{ backgroundColor: "#3B82F6", width: 6, height: 6, borderRadius: 3 }} />
-              <Text className="text-[10px] text-muted ml-0.5">P</Text>
+              <View style={{ backgroundColor: "#3B82F6", width: 8, height: 8, borderRadius: 4 }} />
+              <Text className="text-xs text-muted ml-1">P</Text>
             </View>
             <View className="flex-row items-center">
-              <View style={{ backgroundColor: "#22C55E", width: 6, height: 6, borderRadius: 3 }} />
-              <Text className="text-[10px] text-muted ml-0.5">9-17</Text>
+              <View style={{ backgroundColor: "#22C55E", width: 8, height: 8, borderRadius: 4 }} />
+              <Text className="text-xs text-muted ml-1">9-17</Text>
             </View>
             <View className="flex-row items-center">
-              <View style={{ backgroundColor: "#86EFAC", width: 6, height: 6, borderRadius: 3 }} />
-              <Text className="text-[10px] text-muted ml-0.5">9-13</Text>
+              <View style={{ backgroundColor: "#86EFAC", width: 8, height: 8, borderRadius: 4 }} />
+              <Text className="text-xs text-muted ml-1">9-13</Text>
             </View>
           </View>
         </View>

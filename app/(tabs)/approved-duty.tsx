@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   Text,
   View,
@@ -8,8 +8,9 @@ import {
   Modal,
   Alert,
   RefreshControl,
-  Dimensions,
   PanResponder,
+  GestureResponderEvent,
+  PanResponderGestureState,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useAuthContext } from "@/lib/auth-context";
@@ -31,9 +32,6 @@ import { Swipeable } from "react-native-gesture-handler";
 import { useNavigation } from "@react-navigation/native";
 import { useColors } from "@/hooks/use-colors";
 import { useSettings } from "@/lib/settings-context";
-
-const SCREEN_HEIGHT = Dimensions.get("window").height;
-const CALENDAR_HEIGHT = SCREEN_HEIGHT / 3;
 
 function parseDateStr(dateStr: string): Date {
   const parts = dateStr.split("/");
@@ -106,6 +104,45 @@ export default function ApprovedDutyScreen() {
       return createdA - createdB;
     });
 
+  // Calculate this week's total hours (Sun-Sat)
+  const weeklyHours = (() => {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - dayOfWeek);
+    weekStart.setHours(0, 0, 0, 0);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+
+    // For non-admin, only count current user's duties
+    // For admin, count all duties
+    const weekDuties = approvedRequests.filter((r) => {
+      if (!isAdmin && userProfile?.uid && r.userId !== userProfile.uid) return false;
+      const d = parseDateStr(r.date);
+      return d >= weekStart && d <= weekEnd;
+    });
+
+    let totalHours = 0;
+    for (const duty of weekDuties) {
+      // Try to match from settings first, then use defaults
+      const option = settings.dutyOptions.find((o) => o.label === duty.dutyType);
+      if (option) {
+        totalHours += option.hours;
+      } else {
+        // Fallback defaults
+        if (duty.dutyType === "A" || duty.dutyType === "P" || duty.dutyType === "0900-1700") {
+          totalHours += 7;
+        } else if (duty.dutyType === "0900-1300") {
+          totalHours += 4;
+        }
+      }
+    }
+    return totalHours;
+  })();
+
+  const isOverLimit = weeklyHours >= 14;
+
   const handleReject = (request: DutyRequest) => {
     if (!request.id) return;
     Alert.alert(
@@ -177,36 +214,55 @@ export default function ApprovedDutyScreen() {
     </TouchableOpacity>
   );
 
-  const prevMonth = () => {
-    if (currentMonth === 0) {
-      setCurrentMonth(11);
-      setCurrentYear(currentYear - 1);
-    } else {
-      setCurrentMonth(currentMonth - 1);
-    }
-  };
+  // Use refs to avoid stale closure in PanResponder
+  const monthRef = useRef(currentMonth);
+  const yearRef = useRef(currentYear);
+  monthRef.current = currentMonth;
+  yearRef.current = currentYear;
 
-  const nextMonth = () => {
-    if (currentMonth === 11) {
-      setCurrentMonth(0);
-      setCurrentYear(currentYear + 1);
-    } else {
-      setCurrentMonth(currentMonth + 1);
-    }
-  };
+  const prevMonth = useCallback(() => {
+    setCurrentMonth((m) => {
+      if (m === 0) {
+        setCurrentYear((y) => y - 1);
+        return 11;
+      }
+      return m - 1;
+    });
+  }, []);
 
-  // Swipe gesture for month navigation
-  const calendarPanResponder = React.useRef(
+  const nextMonth = useCallback(() => {
+    setCurrentMonth((m) => {
+      if (m === 11) {
+        setCurrentYear((y) => y + 1);
+        return 0;
+      }
+      return m + 1;
+    });
+  }, []);
+
+  // Use refs for stable PanResponder callbacks
+  const prevMonthRef = useRef(prevMonth);
+  const nextMonthRef = useRef(nextMonth);
+  prevMonthRef.current = prevMonth;
+  nextMonthRef.current = nextMonth;
+
+  const calendarPanResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        return Math.abs(gestureState.dx) > 20 && Math.abs(gestureState.dy) < 30;
+      onMoveShouldSetPanResponder: (
+        _: GestureResponderEvent,
+        gestureState: PanResponderGestureState
+      ) => {
+        return Math.abs(gestureState.dx) > 30 && Math.abs(gestureState.dy) < 40;
       },
-      onPanResponderRelease: (_, gestureState) => {
+      onPanResponderRelease: (
+        _: GestureResponderEvent,
+        gestureState: PanResponderGestureState
+      ) => {
         if (gestureState.dx > 50) {
-          prevMonth();
+          prevMonthRef.current();
         } else if (gestureState.dx < -50) {
-          nextMonth();
+          nextMonthRef.current();
         }
       },
     })
@@ -240,7 +296,7 @@ export default function ApprovedDutyScreen() {
     }
   };
 
-  // Calendar render with overflow days
+  // Calendar render with overflow days - larger cells and dots
   const renderCalendar = () => {
     const daysInMonth = getDaysInMonth(currentYear, currentMonth);
     const firstDay = getFirstDayOfMonth(currentYear, currentMonth);
@@ -258,124 +314,109 @@ export default function ApprovedDutyScreen() {
     const nextYearNum = currentMonth === 11 ? currentYear + 1 : currentYear;
 
     const weekDays = ["日", "一", "二", "三", "四", "五", "六"];
-    const cells: React.ReactNode[] = [];
+    const rows: React.ReactNode[] = [];
 
     // Header row
-    weekDays.forEach((day, i) =>
-      cells.push(
-        <View key={`header-${i}`} className="flex-1 items-center py-0.5">
-          <Text className="text-xs text-muted font-medium">{day}</Text>
-        </View>
-      )
+    rows.push(
+      <View key="header" className="flex-row mb-1">
+        {weekDays.map((day, i) => (
+          <View key={`h-${i}`} className="flex-1 items-center py-1">
+            <Text className="text-xs text-muted font-medium">{day}</Text>
+          </View>
+        ))}
+      </View>
     );
 
-    // Leading overflow days (previous month)
+    interface CellData {
+      day: number;
+      month: number;
+      year: number;
+      isOverflow: boolean;
+    }
+
+    const allCells: CellData[] = [];
+
+    // Leading overflow
     for (let i = 0; i < firstDay; i++) {
       const overflowDay = daysInPrevMonth - firstDay + 1 + i;
-      const approvedForDay = getApprovedForAnyDate(overflowDay, prevMonthNum, prevYearNum);
-      const hasApproved = approvedForDay.length > 0;
-
-      cells.push(
-        <TouchableOpacity
-          key={`prev-${i}`}
-          className="flex-1 items-center py-0.5"
-          onPress={() => handleOverflowDateTap(overflowDay, prevMonthNum, prevYearNum)}
-        >
-          <View className="w-6 h-6 rounded-full items-center justify-center">
-            <Text className="text-xs" style={{ color: "#9CA3AF" }}>{overflowDay}</Text>
-          </View>
-          {hasApproved && (
-            <View className="flex-row mt-0.5 gap-0.5">
-              {approvedForDay.slice(0, 3).map((r, idx) => (
-                <View
-                  key={idx}
-                  style={{ backgroundColor: getDutyColor(r.dutyType), width: 5, height: 5, borderRadius: 2.5, opacity: 0.6 }}
-                />
-              ))}
-            </View>
-          )}
-        </TouchableOpacity>
-      );
+      allCells.push({ day: overflowDay, month: prevMonthNum, year: prevYearNum, isOverflow: true });
     }
 
-    // Current month days
+    // Current month
     for (let day = 1; day <= daysInMonth; day++) {
-      const isToday = isCurrentMonth && todayDate.getDate() === day;
-      const approvedForDay = getApprovedForDate(day);
-      const hasApproved = approvedForDay.length > 0;
-
-      cells.push(
-        <TouchableOpacity
-          key={`day-${day}`}
-          className="flex-1 items-center py-0.5"
-          onPress={() => handleDateTap(day)}
-        >
-          <View
-            className={`w-6 h-6 rounded-full items-center justify-center ${
-              isToday ? "bg-primary" : ""
-            }`}
-          >
-            <Text
-              className={`text-xs ${
-                isToday ? "text-white font-bold" : "text-foreground"
-              }`}
-            >
-              {day}
-            </Text>
-          </View>
-          {hasApproved && (
-            <View className="flex-row mt-0.5 gap-0.5">
-              {approvedForDay.slice(0, 3).map((r, idx) => (
-                <View
-                  key={idx}
-                  style={{ backgroundColor: getDutyColor(r.dutyType), width: 5, height: 5, borderRadius: 2.5 }}
-                />
-              ))}
-            </View>
-          )}
-        </TouchableOpacity>
-      );
+      allCells.push({ day, month: currentMonth, year: currentYear, isOverflow: false });
     }
 
-    // Trailing overflow days (next month) - fill remaining cells to complete the last row
-    const totalCellsSoFar = cells.length - 7; // subtract header row
-    const remainder = totalCellsSoFar % 7;
+    // Trailing overflow - fill to complete the last row
+    const remainder = allCells.length % 7;
     if (remainder > 0) {
       const trailingCount = 7 - remainder;
       for (let i = 1; i <= trailingCount; i++) {
-        const approvedForDay = getApprovedForAnyDate(i, nextMonthNum, nextYearNum);
-        const hasApproved = approvedForDay.length > 0;
-
-        cells.push(
-          <TouchableOpacity
-            key={`next-${i}`}
-            className="flex-1 items-center py-0.5"
-            onPress={() => handleOverflowDateTap(i, nextMonthNum, nextYearNum)}
-          >
-            <View className="w-6 h-6 rounded-full items-center justify-center">
-              <Text className="text-xs" style={{ color: "#9CA3AF" }}>{i}</Text>
-            </View>
-            {hasApproved && (
-              <View className="flex-row mt-0.5 gap-0.5">
-                {approvedForDay.slice(0, 3).map((r, idx) => (
-                  <View
-                    key={idx}
-                    style={{ backgroundColor: getDutyColor(r.dutyType), width: 5, height: 5, borderRadius: 2.5, opacity: 0.6 }}
-                  />
-                ))}
-              </View>
-            )}
-          </TouchableOpacity>
-        );
+        allCells.push({ day: i, month: nextMonthNum, year: nextYearNum, isOverflow: true });
       }
     }
 
-    // Build rows
-    const rows: React.ReactNode[] = [];
-    for (let i = 0; i < cells.length; i += 7) {
+    // Build rows of 7
+    for (let i = 0; i < allCells.length; i += 7) {
+      const week = allCells.slice(i, i + 7);
       rows.push(
-        <View key={`row-${i}`} className="flex-row">
-          {cells.slice(i, i + 7)}
+        <View key={`row-${i}`} className="flex-row" style={{ marginVertical: 2 }}>
+          {week.map((cell, idx) => {
+            const isToday =
+              isCurrentMonth && !cell.isOverflow && todayDate.getDate() === cell.day;
+            const approvedForDay = getApprovedForAnyDate(cell.day, cell.month, cell.year);
+            const hasApproved = approvedForDay.length > 0;
+
+            return (
+              <TouchableOpacity
+                key={`${i}-${idx}`}
+                className="flex-1 items-center"
+                style={{ paddingVertical: 3 }}
+                onPress={() => {
+                  if (cell.isOverflow) {
+                    handleOverflowDateTap(cell.day, cell.month, cell.year);
+                  } else {
+                    handleDateTap(cell.day);
+                  }
+                }}
+              >
+                <View
+                  className={`w-8 h-8 rounded-full items-center justify-center ${
+                    isToday ? "bg-primary" : ""
+                  }`}
+                >
+                  <Text
+                    className={`text-sm ${
+                      isToday
+                        ? "text-white font-bold"
+                        : cell.isOverflow
+                        ? ""
+                        : "text-foreground"
+                    }`}
+                    style={cell.isOverflow ? { color: "#9CA3AF" } : undefined}
+                  >
+                    {cell.day}
+                  </Text>
+                </View>
+                {hasApproved && (
+                  <View className="flex-row mt-0.5" style={{ gap: 2 }}>
+                    {approvedForDay.slice(0, 4).map((r, dotIdx) => (
+                      <View
+                        key={dotIdx}
+                        style={{
+                          backgroundColor: getDutyColor(r.dutyType),
+                          width: 6,
+                          height: 6,
+                          borderRadius: 3,
+                          opacity: cell.isOverflow ? 0.5 : 1,
+                        }}
+                      />
+                    ))}
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
         </View>
       );
     }
@@ -439,58 +480,30 @@ export default function ApprovedDutyScreen() {
             ← Swipe left to cancel | Swipe right to reject →
           </Text>
         )}
-        {(() => {
-          // Calculate this week's total hours (Sun-Sat)
-          const now = new Date();
-          const dayOfWeek = now.getDay();
-          const weekStart = new Date(now);
-          weekStart.setDate(now.getDate() - dayOfWeek);
-          weekStart.setHours(0, 0, 0, 0);
-          const weekEnd = new Date(weekStart);
-          weekEnd.setDate(weekStart.getDate() + 6);
-          weekEnd.setHours(23, 59, 59, 999);
-
-          const weekDuties = approvedRequests.filter((r) => {
-            if (!isAdmin && userProfile && r.userId !== userProfile.uid) return false;
-            const d = parseDateStr(r.date);
-            return d >= weekStart && d <= weekEnd;
-          });
-
-          let totalHours = 0;
-          for (const duty of weekDuties) {
-            const option = settings.dutyOptions.find((o) => o.label === duty.dutyType);
-            totalHours += option ? option.hours : 0;
-          }
-
-          const isOverLimit = totalHours >= 14;
-
-          return (
-            <View className="flex-row items-center mt-1">
-              <Text className="text-xs text-muted">This week (Sun-Sat): </Text>
-              <Text
-                className={`text-xs ${isOverLimit ? "font-bold" : ""}`}
-                style={isOverLimit ? { color: "#EF4444" } : { color: colors.muted }}
-              >
-                {totalHours}h
-              </Text>
-              {isOverLimit && (
-                <Text className="text-xs font-bold" style={{ color: "#EF4444" }}>
-                  {" "}(≥14h)
-                </Text>
-              )}
-            </View>
-          );
-        })()}
+        <View className="flex-row items-center mt-1">
+          <Text className="text-xs text-muted">This week (Sun-Sat): </Text>
+          <Text
+            className={`text-xs ${isOverLimit ? "font-bold" : ""}`}
+            style={{ color: isOverLimit ? "#EF4444" : colors.muted }}
+          >
+            {weeklyHours}h
+          </Text>
+          {isOverLimit && (
+            <Text className="text-xs font-bold" style={{ color: "#EF4444" }}>
+              {" "}(≥14h)
+            </Text>
+          )}
+        </View>
       </View>
 
       {/* Approved List - Top (future duties only) */}
-      <View className="mx-3 mt-2 border border-border rounded-xl overflow-hidden" style={{ maxHeight: "35%" }}>
+      <View className="mx-3 mt-2 border border-border rounded-xl overflow-hidden" style={{ maxHeight: "30%" }}>
         {futureApproved.length === 0 ? (
           <FlatList
             data={[]}
             renderItem={() => null}
             ListEmptyComponent={
-              <View className="items-center justify-center py-8">
+              <View className="items-center justify-center py-6">
                 <Text className="text-muted text-sm">No upcoming approved duties</Text>
               </View>
             }
@@ -510,48 +523,47 @@ export default function ApprovedDutyScreen() {
         )}
       </View>
 
-      {/* Calendar - 1/3 of screen */}
+      {/* Calendar - uses remaining space, larger */}
       <View
-        className="mx-3 mt-2 mb-2 border border-border rounded-xl p-2 bg-surface"
-        style={{ height: CALENDAR_HEIGHT }}
+        className="mx-3 mt-2 mb-2 flex-1 border border-border rounded-xl p-3 bg-surface"
         {...calendarPanResponder.panHandlers}
       >
-        <View className="flex-row items-center justify-between mb-1">
+        <View className="flex-row items-center justify-between mb-2">
           <View className="flex-row items-center">
             <TouchableOpacity
               onPress={prevMonth}
-              className="p-1 rounded-full"
+              className="p-2 rounded-full"
               style={{ backgroundColor: colors.background }}
             >
-              <MaterialIcons name="chevron-left" size={22} color={colors.foreground} />
+              <MaterialIcons name="chevron-left" size={24} color={colors.foreground} />
             </TouchableOpacity>
-            <Text className="text-sm font-bold text-foreground mx-2">
+            <Text className="text-base font-bold text-foreground mx-3">
               {String(currentMonth + 1).padStart(2, "0")}/{currentYear}
             </Text>
             <TouchableOpacity
               onPress={nextMonth}
-              className="p-1 rounded-full"
+              className="p-2 rounded-full"
               style={{ backgroundColor: colors.background }}
             >
-              <MaterialIcons name="chevron-right" size={22} color={colors.foreground} />
+              <MaterialIcons name="chevron-right" size={24} color={colors.foreground} />
             </TouchableOpacity>
           </View>
-          <View className="flex-row items-center gap-1">
+          <View className="flex-row items-center gap-2">
             <View className="flex-row items-center">
-              <View style={{ backgroundColor: "#EF4444", width: 6, height: 6, borderRadius: 3 }} />
-              <Text className="text-[10px] text-muted ml-0.5">A</Text>
+              <View style={{ backgroundColor: "#EF4444", width: 8, height: 8, borderRadius: 4 }} />
+              <Text className="text-xs text-muted ml-1">A</Text>
             </View>
             <View className="flex-row items-center">
-              <View style={{ backgroundColor: "#3B82F6", width: 6, height: 6, borderRadius: 3 }} />
-              <Text className="text-[10px] text-muted ml-0.5">P</Text>
+              <View style={{ backgroundColor: "#3B82F6", width: 8, height: 8, borderRadius: 4 }} />
+              <Text className="text-xs text-muted ml-1">P</Text>
             </View>
             <View className="flex-row items-center">
-              <View style={{ backgroundColor: "#22C55E", width: 6, height: 6, borderRadius: 3 }} />
-              <Text className="text-[10px] text-muted ml-0.5">9-17</Text>
+              <View style={{ backgroundColor: "#22C55E", width: 8, height: 8, borderRadius: 4 }} />
+              <Text className="text-xs text-muted ml-1">9-17</Text>
             </View>
             <View className="flex-row items-center">
-              <View style={{ backgroundColor: "#86EFAC", width: 6, height: 6, borderRadius: 3 }} />
-              <Text className="text-[10px] text-muted ml-0.5">9-13</Text>
+              <View style={{ backgroundColor: "#86EFAC", width: 8, height: 8, borderRadius: 4 }} />
+              <Text className="text-xs text-muted ml-1">9-13</Text>
             </View>
           </View>
         </View>
@@ -572,17 +584,10 @@ export default function ApprovedDutyScreen() {
             </Text>
             <FlatList
               data={selectedDateDuties}
-              keyExtractor={(item) => item.id || Math.random().toString()}
               renderItem={({ item }) => (
-                <View className="flex-row items-center py-3 px-3 border-b border-border">
-                  <View
-                    className="w-8 h-8 rounded-full mr-3"
-                    style={{ backgroundColor: "#D1D5DB" }}
-                  />
+                <View className="flex-row items-center py-2 border-b border-border">
                   <View className="flex-1">
-                    <Text className="text-sm font-bold text-foreground">
-                      {item.userName}
-                    </Text>
+                    <Text className="text-sm font-bold text-foreground">{item.userName}</Text>
                   </View>
                   <View
                     style={{ backgroundColor: getDutyColor(item.dutyType) }}
@@ -592,12 +597,13 @@ export default function ApprovedDutyScreen() {
                   </View>
                 </View>
               )}
+              keyExtractor={(item) => item.id || Math.random().toString()}
             />
             <TouchableOpacity
               onPress={() => setShowDutyModal(false)}
-              className="mt-4 rounded-xl py-3 items-center border border-border"
+              className="mt-3 py-2.5 rounded-xl items-center bg-primary"
             >
-              <Text className="text-foreground text-base font-semibold">Close</Text>
+              <Text className="text-white font-semibold">Close</Text>
             </TouchableOpacity>
           </View>
         </View>

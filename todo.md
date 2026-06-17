@@ -61,3 +61,7 @@
 - [x] Date restriction: when today is 15-26th, same month 15-26th dates are not selectable
 - [x] Calendar: add left/right arrow indicators and swipe gesture to change month
 - [x] Approved Duty: highlight weekly hours in red bold when >= 14 hours
+- [x] Fix: Weekly hours >=14h red highlight not working (showing dash instead of number)
+- [x] Fix: Request page calendar swipe not working (PanResponder in Modal conflict)
+- [x] Fix: Approved page calendar swipe stuck between May/July (stale closure in PanResponder)
+- [x] Fix: Calendar too small - enlarge and show all duty dots properly
