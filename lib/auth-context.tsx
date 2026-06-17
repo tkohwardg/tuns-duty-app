@@ -29,18 +29,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Timeout: if auth doesn't resolve in 10s, stop loading
+    const timeout = setTimeout(() => {
+      setIsLoading(false);
+    }, 10000);
+
     const unsubscribe = onAuthChange(async (firebaseUser) => {
+      clearTimeout(timeout);
       setUser(firebaseUser);
       if (firebaseUser) {
         try {
           const userDocRef = doc(db, COLLECTIONS.USERS, firebaseUser.uid);
-          const userDocSnap = await getDoc(userDocRef);
-          if (userDocSnap.exists()) {
+          // Race profile fetch with 8s timeout
+          const profileTimeout = new Promise<null>((_, reject) =>
+            setTimeout(() => reject(new Error("Profile fetch timeout")), 8000)
+          );
+          const userDocSnap = await Promise.race([getDoc(userDocRef), profileTimeout]) as any;
+          if (userDocSnap && userDocSnap.exists()) {
             const profile = userDocSnap.data() as UserProfile;
             setUserProfile(profile);
             await AsyncStorage.setItem("userProfile", JSON.stringify(profile));
           }
         } catch (error) {
+          // Fallback to cached profile
           const cached = await AsyncStorage.getItem("userProfile");
           if (cached) {
             setUserProfile(JSON.parse(cached));
@@ -53,7 +64,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      clearTimeout(timeout);
+      unsubscribe();
+    };
   }, []);
 
   const login = async (email: string, password: string) => {

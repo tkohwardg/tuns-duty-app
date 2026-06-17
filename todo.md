@@ -66,3 +66,6 @@
 - [x] Fix: Approved page calendar swipe stuck between May/July (stale closure in PanResponder)
 - [x] Fix: Calendar too small - enlarge and show all duty dots properly
 - [x] Add loading indicators (ActivityIndicator) for all data fetching/submission moments across all pages
+- [x] Fix: Login page shows persistent loading icon - should redirect to login form when not authenticated
+- [x] Add 10-second timeout for loading states with retry button
+- [x] Add No Connection error screen when network fails

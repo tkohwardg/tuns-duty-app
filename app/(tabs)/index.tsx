@@ -155,7 +155,7 @@ export default function RequestDutyScreen() {
     }
   };
 
-  if (settingsLoading || !userProfile) {
+  if (settingsLoading) {
     return (
       <ScreenContainer className="flex-1 items-center justify-center">
         <ActivityIndicator size="large" color="#4CAF50" />
