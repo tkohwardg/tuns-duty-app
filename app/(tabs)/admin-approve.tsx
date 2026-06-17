@@ -594,8 +594,12 @@ export default function AdminApproveScreen() {
             <Text className="text-sm font-bold text-foreground">
               {selectedStaff ? selectedStaff.name : "—"}
             </Text>
-            <Text className="text-sm font-bold text-foreground">
+            <Text
+              className="text-sm font-bold"
+              style={{ color: selectedStaff && weeklyHours >= 14 ? "#EF4444" : undefined }}
+            >
               {selectedStaff ? `${weeklyHours} hrs` : "—"}
+              {selectedStaff && weeklyHours >= 14 ? " (≥14h)" : ""}
             </Text>
           </View>
         </View>
