@@ -65,3 +65,4 @@
 - [x] Fix: Request page calendar swipe not working (PanResponder in Modal conflict)
 - [x] Fix: Approved page calendar swipe stuck between May/July (stale closure in PanResponder)
 - [x] Fix: Calendar too small - enlarge and show all duty dots properly
+- [x] Add loading indicators (ActivityIndicator) for all data fetching/submission moments across all pages

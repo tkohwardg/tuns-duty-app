@@ -40,7 +40,7 @@ const INITIAL_REQUESTS: RequestRow[] = [
 
 export default function RequestDutyScreen() {
   const { userProfile, logout } = useAuthContext();
-  const { settings } = useSettings();
+  const { settings, isLoading: settingsLoading } = useSettings();
   const dutyOptions = settings.dutyOptions.map((o) => o.label);
   const [requests, setRequests] = useState<RequestRow[]>(
     INITIAL_REQUESTS.map((r) => ({ ...r }))
@@ -154,6 +154,15 @@ export default function RequestDutyScreen() {
       Alert.alert("Error", "Failed to logout.");
     }
   };
+
+  if (settingsLoading || !userProfile) {
+    return (
+      <ScreenContainer className="flex-1 items-center justify-center">
+        <ActivityIndicator size="large" color="#4CAF50" />
+        <Text className="text-sm text-muted mt-3">Loading...</Text>
+      </ScreenContainer>
+    );
+  }
 
   return (
     <ScreenContainer className="px-4">

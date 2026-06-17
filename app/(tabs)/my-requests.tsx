@@ -188,6 +188,7 @@ export default function MyRequestsScreen() {
     return (
       <ScreenContainer className="flex-1 items-center justify-center">
         <ActivityIndicator size="large" color="#4CAF50" />
+        <Text className="text-sm text-muted mt-3">Loading...</Text>
       </ScreenContainer>
     );
   }
