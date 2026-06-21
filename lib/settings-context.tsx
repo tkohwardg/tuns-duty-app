@@ -50,13 +50,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   const loadSettings = useCallback(async () => {
     try {
-      // Race with 10-second timeout
-      const timeoutPromise = new Promise<null>((_, reject) =>
-        setTimeout(() => reject(new Error("Settings load timeout")), 10000)
-      );
-      const docRef = doc(db as any, SETTINGS_COLLECTION, SETTINGS_DOC);
-      const docSnap = await Promise.race([getDoc(docRef), timeoutPromise]) as any;
-      if (docSnap && docSnap.exists()) {
+      const docRef = doc(db, SETTINGS_COLLECTION, SETTINGS_DOC);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
         const data = docSnap.data() as AppSettings;
         setSettings({
           wardName: data.wardName || DEFAULT_SETTINGS.wardName,
@@ -64,18 +60,12 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
             ? data.dutyOptions
             : DEFAULT_SETTINGS.dutyOptions,
         });
-      } else if (docSnap) {
+      } else {
         // Create default settings in Firestore
-        try {
-          await setDoc(doc(db as any, SETTINGS_COLLECTION, SETTINGS_DOC), DEFAULT_SETTINGS);
-        } catch (e) {
-          // Ignore write errors, use defaults
-        }
+        await setDoc(doc(db, SETTINGS_COLLECTION, SETTINGS_DOC), DEFAULT_SETTINGS);
       }
     } catch (error) {
       console.error("Error loading settings:", error);
-      // Use default settings on error/timeout
-      setSettings(DEFAULT_SETTINGS);
     } finally {
       setIsLoading(false);
     }
@@ -87,7 +77,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   const saveSettings = async (newSettings: AppSettings) => {
     try {
-      await setDoc(doc(db as any, SETTINGS_COLLECTION, SETTINGS_DOC), newSettings);
+      await setDoc(doc(db, SETTINGS_COLLECTION, SETTINGS_DOC), newSettings);
       setSettings(newSettings);
     } catch (error) {
       console.error("Error saving settings:", error);
