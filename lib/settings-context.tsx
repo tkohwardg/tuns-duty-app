@@ -54,7 +54,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       const timeoutPromise = new Promise<null>((_, reject) =>
         setTimeout(() => reject(new Error("Settings load timeout")), 10000)
       );
-      const docRef = doc(db, SETTINGS_COLLECTION, SETTINGS_DOC);
+      const docRef = doc(db as any, SETTINGS_COLLECTION, SETTINGS_DOC);
       const docSnap = await Promise.race([getDoc(docRef), timeoutPromise]) as any;
       if (docSnap && docSnap.exists()) {
         const data = docSnap.data() as AppSettings;
@@ -67,7 +67,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       } else if (docSnap) {
         // Create default settings in Firestore
         try {
-          await setDoc(doc(db, SETTINGS_COLLECTION, SETTINGS_DOC), DEFAULT_SETTINGS);
+          await setDoc(doc(db as any, SETTINGS_COLLECTION, SETTINGS_DOC), DEFAULT_SETTINGS);
         } catch (e) {
           // Ignore write errors, use defaults
         }
@@ -87,7 +87,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   const saveSettings = async (newSettings: AppSettings) => {
     try {
-      await setDoc(doc(db, SETTINGS_COLLECTION, SETTINGS_DOC), newSettings);
+      await setDoc(doc(db as any, SETTINGS_COLLECTION, SETTINGS_DOC), newSettings);
       setSettings(newSettings);
     } catch (error) {
       console.error("Error saving settings:", error);

@@ -37,9 +37,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthChange(async (firebaseUser) => {
       clearTimeout(timeout);
       setUser(firebaseUser);
-      if (firebaseUser) {
+      if (firebaseUser && db) {
         try {
-          const userDocRef = doc(db, COLLECTIONS.USERS, firebaseUser.uid);
+          const userDocRef = doc(db as any, COLLECTIONS.USERS, firebaseUser.uid);
           // Race profile fetch with 8s timeout
           const profileTimeout = new Promise<null>((_, reject) =>
             setTimeout(() => reject(new Error("Profile fetch timeout")), 8000)
@@ -71,18 +71,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
+    if (!db) throw new Error("Firebase not initialized");
     const credential = await loginWithEmail(email, password);
     const firebaseUser = credential.user;
 
     // Fetch user profile
-    const userDocRef = doc(db, COLLECTIONS.USERS, firebaseUser.uid);
+    const userDocRef = doc(db as any, COLLECTIONS.USERS, firebaseUser.uid);
     const userDocSnap = await getDoc(userDocRef);
     if (userDocSnap.exists()) {
       const profile = userDocSnap.data() as UserProfile;
       setUserProfile(profile);
       await AsyncStorage.setItem("userProfile", JSON.stringify(profile));
     }
-
   };
 
   const logout = async () => {

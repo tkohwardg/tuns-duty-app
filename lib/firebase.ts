@@ -1,4 +1,4 @@
-import { initializeApp } from "firebase/app";
+import { initializeApp, type FirebaseApp } from "firebase/app";
 import {
   getAuth,
   initializeAuth,
@@ -6,6 +6,7 @@ import {
   signOut,
   onAuthStateChanged,
   type User,
+  type Auth,
 } from "firebase/auth";
 import {
   getFirestore,
@@ -17,6 +18,7 @@ import {
   query,
   where,
   Timestamp,
+  type Firestore,
 } from "firebase/firestore";
 import { Platform } from "react-native";
 
@@ -30,35 +32,57 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID || "",
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// Check if Firebase config is complete
+const isFirebaseConfigValid = firebaseConfig.apiKey && firebaseConfig.projectId;
 
-// Initialize Auth
-let auth: ReturnType<typeof getAuth>;
-if (Platform.OS === "web") {
-  auth = getAuth(app);
-} else {
-  // For React Native, use getAuth (firebase v9+ handles persistence internally)
-  auth = getAuth(app);
+if (!isFirebaseConfigValid) {
+  console.warn(
+    "Firebase configuration is incomplete. Firebase services will not be available during build. " +
+    "This is expected during static export. Set EXPO_PUBLIC_FIREBASE_* env vars for runtime use."
+  );
 }
 
-// Initialize Firestore
-export const db = getFirestore(app);
+// Initialize Firebase only if config is valid
+let app: FirebaseApp | null = null;
+let auth: Auth | null = null;
+let db: Firestore | null = null;
 
-// Auth functions
+if (isFirebaseConfigValid) {
+  app = initializeApp(firebaseConfig);
+
+  // Initialize Auth
+  if (Platform.OS === "web") {
+    auth = getAuth(app);
+  } else {
+    auth = getAuth(app);
+  }
+
+  // Initialize Firestore
+  db = getFirestore(app);
+}
+
+// Auth functions with null checks
 export const loginWithEmail = async (email: string, password: string) => {
+  if (!auth) throw new Error("Firebase Auth not initialized");
   return signInWithEmailAndPassword(auth, email, password);
 };
 
 export const logout = async () => {
+  if (!auth) throw new Error("Firebase Auth not initialized");
   return signOut(auth);
 };
 
 export const getCurrentUser = (): User | null => {
+  if (!auth) return null;
   return auth.currentUser;
 };
 
 export const onAuthChange = (callback: (user: User | null) => void) => {
+  if (!auth) {
+    console.warn("Firebase Auth not initialized");
+    callback(null);
+    return () => {};
+  }
   return onAuthStateChanged(auth, callback);
 };
 
@@ -92,10 +116,11 @@ export interface UserProfile {
   role: "admin" | "user";
 }
 
-// Firestore operations
+// Firestore operations with null checks
 export const addDutyRequest = async (request: Omit<DutyRequest, "id" | "createdAt" | "updatedAt">) => {
+  if (!db) throw new Error("Firebase Firestore not initialized");
   const now = Timestamp.now();
-  return addDoc(collection(db, COLLECTIONS.DUTY_REQUESTS), {
+  return addDoc(collection(db as Firestore, COLLECTIONS.DUTY_REQUESTS), {
     ...request,
     createdAt: now,
     updatedAt: now,
@@ -103,7 +128,8 @@ export const addDutyRequest = async (request: Omit<DutyRequest, "id" | "createdA
 };
 
 export const updateDutyRequestStatus = async (requestId: string, status: RequestStatus) => {
-  const docRef = doc(db, COLLECTIONS.DUTY_REQUESTS, requestId);
+  if (!db) throw new Error("Firebase Firestore not initialized");
+  const docRef = doc(db as Firestore, COLLECTIONS.DUTY_REQUESTS, requestId);
   return updateDoc(docRef, {
     status,
     updatedAt: Timestamp.now(),
@@ -111,16 +137,17 @@ export const updateDutyRequestStatus = async (requestId: string, status: Request
 };
 
 export const getUserDutyRequests = async (userId: string, status?: RequestStatus) => {
+  if (!db) throw new Error("Firebase Firestore not initialized");
   let q;
   if (status) {
     q = query(
-      collection(db, COLLECTIONS.DUTY_REQUESTS),
+      collection(db as Firestore, COLLECTIONS.DUTY_REQUESTS),
       where("userId", "==", userId),
       where("status", "==", status)
     );
   } else {
     q = query(
-      collection(db, COLLECTIONS.DUTY_REQUESTS),
+      collection(db as Firestore, COLLECTIONS.DUTY_REQUESTS),
       where("userId", "==", userId)
     );
   }
@@ -135,8 +162,9 @@ export const getUserDutyRequests = async (userId: string, status?: RequestStatus
 };
 
 export const getAllPendingRequests = async () => {
+  if (!db) throw new Error("Firebase Firestore not initialized");
   const q = query(
-    collection(db, COLLECTIONS.DUTY_REQUESTS),
+    collection(db as Firestore, COLLECTIONS.DUTY_REQUESTS),
     where("status", "==", "pending")
   );
   const snapshot = await getDocs(q);
@@ -150,8 +178,9 @@ export const getAllPendingRequests = async () => {
 };
 
 export const getAllApprovedRequests = async () => {
+  if (!db) throw new Error("Firebase Firestore not initialized");
   const q = query(
-    collection(db, COLLECTIONS.DUTY_REQUESTS),
+    collection(db as Firestore, COLLECTIONS.DUTY_REQUESTS),
     where("status", "==", "approved")
   );
   const snapshot = await getDocs(q);
@@ -173,8 +202,9 @@ export const checkDuplicateRequest = async (
   date: string,
   dutyType: DutyType
 ): Promise<boolean> => {
+  if (!db) throw new Error("Firebase Firestore not initialized");
   const q = query(
-    collection(db, COLLECTIONS.DUTY_REQUESTS),
+    collection(db as Firestore, COLLECTIONS.DUTY_REQUESTS),
     where("userId", "==", userId),
     where("date", "==", date),
     where("dutyType", "==", dutyType)
@@ -187,4 +217,4 @@ export const checkDuplicateRequest = async (
   });
 };
 
-export { auth };
+export { auth, db };
