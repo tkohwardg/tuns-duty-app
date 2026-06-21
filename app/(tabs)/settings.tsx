@@ -31,7 +31,7 @@ function parseDateStr(dateStr: string): Date {
 
 export default function SettingsScreen() {
   const { isAdmin, userProfile } = useAuthContext();
-  const { settings, isLoading: settingsLoading, updateWardName, addDutyOption, removeDutyOption } = useSettings();
+  const { settings, updateWardName, addDutyOption, removeDutyOption } = useSettings();
 
   // Ward Name
   const [wardNameInput, setWardNameInput] = useState(settings.wardName);
@@ -260,14 +260,6 @@ export default function SettingsScreen() {
     );
   }
 
-  if (settingsLoading) {
-    return (
-      <ScreenContainer className="flex-1 items-center justify-center">
-        <ActivityIndicator size="large" color="#4CAF50" />
-        <Text className="text-sm text-muted mt-3">Loading settings...</Text>
-      </ScreenContainer>
-    );
-  }
 
   return (
     <ScreenContainer className="flex-1">
