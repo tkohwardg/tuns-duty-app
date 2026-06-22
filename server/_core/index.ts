@@ -70,6 +70,22 @@ async function startServer() {
     }),
   );
 
+  // 👇 1. 把 tRPC Playground 加在這裡
+  const { expressHandler } = await import('trpc-playground/handlers/express');
+  app.use(
+    "/playground",
+    await expressHandler({
+      trpcApiEndpoint: "/api/trpc", // 👈 這裡修改成符合你原本的 /api/trpc
+      playgroundEndpoint: "/playground",
+      router: appRouter,
+    })
+  );
+
+  // 👇 2. 讓首頁自動跳轉到 Playground 面板
+  app.get('/', (req, res) => {
+    res.redirect('/playground');
+  });
+
   const preferredPort = parseInt(process.env.PORT || "3000");
   const port = await findAvailablePort(preferredPort);
 
