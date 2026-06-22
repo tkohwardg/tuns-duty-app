@@ -7,6 +7,7 @@ import { registerOAuthRoutes } from "./oauth";
 import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
+import { expressHandler } from 'trpc-playground/handlers/express';
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
