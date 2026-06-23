@@ -2,9 +2,10 @@ services:
   - type: web
     name: tuns-duty-app
     env: node
+    nodeversion: 24.17.0
     plan: free
-    buildCommand: pnpm install && pnpm run build:web
-    startCommand: npx serve web-build -l 3000
+    buildCommand: npm install -g pnpm && pnpm install && pnpm run build:web
+    startCommand: npx serve web-build -l $PORT
     envVars:
       - key: EXPO_PUBLIC_FIREBASE_API_KEY
         sync: false
