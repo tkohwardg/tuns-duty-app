@@ -4,7 +4,6 @@ import {
   View,
   TextInput,
   TouchableOpacity,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
@@ -18,29 +17,36 @@ export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const { login } = useAuthContext();
   const { settings } = useSettings();
 
   const handleLogin = async () => {
+    setErrorMessage("");
     if (!email.trim() || !password.trim()) {
-      Alert.alert("Error", "Please enter both email and staff number.");
+      setErrorMessage("Please enter both email and password.");
       return;
     }
-
     setIsLoading(true);
     try {
       await login(email.trim(), password.trim());
       router.replace("/(tabs)");
     } catch (error: any) {
       let message = "Login failed. Please check your credentials.";
-      if (error?.code === "auth/user-not-found") {
-        message = "No account found with this email.";
-      } else if (error?.code === "auth/wrong-password") {
-        message = "Incorrect staff number.";
+      if (
+        error?.code === "auth/user-not-found" ||
+        error?.code === "auth/invalid-credential" ||
+        error?.code === "auth/wrong-password"
+      ) {
+        message = "Incorrect email or password. Please try again.";
       } else if (error?.code === "auth/invalid-email") {
         message = "Please enter a valid email address.";
+      } else if (error?.code === "auth/too-many-requests") {
+        message = "Too many failed attempts. Please try again later.";
+      } else if (error?.code === "auth/network-request-failed") {
+        message = "Network error. Please check your connection.";
       }
-      Alert.alert("Login Failed", message);
+      setErrorMessage(message);
     } finally {
       setIsLoading(false);
     }
@@ -61,6 +67,17 @@ export default function LoginScreen() {
 
           {/* Form */}
           <View className="gap-4">
+            {/* Inline Error Message */}
+            {errorMessage !== "" && (
+              <View
+                className="rounded-xl px-4 py-3"
+                style={{ backgroundColor: "#FEE2E2", borderWidth: 1, borderColor: "#EF4444" }}
+              >
+                <Text style={{ color: "#DC2626", fontSize: 14, textAlign: "center" }}>
+                  {errorMessage}
+                </Text>
+              </View>
+            )}
             <View>
               <Text className="text-sm font-medium text-foreground mb-1">
                 Hospital Email
@@ -70,7 +87,7 @@ export default function LoginScreen() {
                 placeholder="Enter your hospital email"
                 placeholderTextColor="#9BA1A6"
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(t) => { setEmail(t); setErrorMessage(""); }}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -80,14 +97,14 @@ export default function LoginScreen() {
 
             <View>
               <Text className="text-sm font-medium text-foreground mb-1">
-                Staff Number (Password)
+                Password
               </Text>
               <TextInput
                 className="border border-border rounded-xl px-4 py-3 text-base text-foreground bg-surface"
-                placeholder="Enter your staff number"
+                placeholder="Enter your password"
                 placeholderTextColor="#9BA1A6"
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(t) => { setPassword(t); setErrorMessage(""); }}
                 secureTextEntry
                 returnKeyType="done"
                 onSubmitEditing={handleLogin}
@@ -98,7 +115,7 @@ export default function LoginScreen() {
               onPress={handleLogin}
               disabled={isLoading}
               className="mt-6 rounded-xl py-4 items-center"
-              style={{ backgroundColor: "#4CAF50" }}
+              style={{ backgroundColor: isLoading ? "#9CA3AF" : "#4CAF50" }}
             >
               {isLoading ? (
                 <ActivityIndicator color="#fff" />

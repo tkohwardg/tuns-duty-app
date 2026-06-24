@@ -225,21 +225,37 @@ export default function SettingsScreen() {
       }).join("\n");
       const csvContent = csvHeader + csvRows;
 
-      // Save to file
+      // Generate file name
       const fileName = `approved_duties_${exportStartDate.replace(/\//g, "-")}_to_${exportEndDate.replace(/\//g, "-")}.csv`;
-      const filePath = `${FileSystem.documentDirectory}${fileName}`;
-      await FileSystem.writeAsStringAsync(filePath, csvContent, {
-        encoding: FileSystem.EncodingType.UTF8,
-      });
 
-      // Share the file
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(filePath, {
-          mimeType: "text/csv",
-          dialogTitle: "Export Approved Duties",
-        });
+      if (Platform.OS === "web") {
+        // Web: trigger browser download
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        Alert.alert("Success", `CSV file downloaded: ${fileName}`);
       } else {
-        Alert.alert("Success", `File saved: ${fileName}`);
+        // iOS / Android: save to app documents then share
+        const filePath = `${FileSystem.documentDirectory}${fileName}`;
+        await FileSystem.writeAsStringAsync(filePath, csvContent, {
+          encoding: FileSystem.EncodingType.UTF8,
+        });
+        // Share via system share sheet (allows saving to Files, Google Drive, etc.)
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(filePath, {
+            mimeType: "text/csv",
+            dialogTitle: "Save or Share Approved Duties CSV",
+            UTI: "public.comma-separated-values-text",
+          });
+        } else {
+          Alert.alert("Saved", `File saved to app documents:\n${fileName}`);
+        }
       }
     } catch (error) {
       console.error("Export error:", error);

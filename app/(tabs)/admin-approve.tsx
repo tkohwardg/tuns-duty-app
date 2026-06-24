@@ -31,6 +31,7 @@ import {
 } from "@/lib/duty-colors";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Swipeable } from "react-native-gesture-handler";
+import { Platform } from "react-native";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 const CALENDAR_HEIGHT = SCREEN_HEIGHT / 3;
@@ -61,6 +62,8 @@ export default function AdminApproveScreen() {
   const [batchMode, setBatchMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchProcessing, setBatchProcessing] = useState(false);
+  // Single item processing state
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -118,8 +121,8 @@ export default function AdminApproveScreen() {
   };
 
   // Single approve/reject
-  const handleApprove = (request: DutyRequest) => {
-    if (!request.id) return;
+  const handleApprove = async (request: DutyRequest) => {
+    if (!request.id || processingId) return;
     Alert.alert(
       "Confirm Approve",
       `Approve ${request.userName}'s "${request.dutyType}" request on ${request.date}?`,
@@ -128,6 +131,7 @@ export default function AdminApproveScreen() {
         {
           text: "Approve",
           onPress: async () => {
+            setProcessingId(request.id!);
             try {
               await updateDutyRequestStatus(request.id!, "approved");
               await updateSheetStatus(request.id!, "approved");
@@ -135,6 +139,8 @@ export default function AdminApproveScreen() {
               setApprovedRequests((prev) => [{ ...request, status: "approved" }, ...prev]);
             } catch (error) {
               Alert.alert("Error", "Failed to approve request.");
+            } finally {
+              setProcessingId(null);
             }
           },
         },
@@ -142,8 +148,8 @@ export default function AdminApproveScreen() {
     );
   };
 
-  const handleReject = (request: DutyRequest) => {
-    if (!request.id) return;
+  const handleReject = async (request: DutyRequest) => {
+    if (!request.id || processingId) return;
     Alert.alert(
       "Confirm Reject",
       `Reject ${request.userName}'s "${request.dutyType}" request on ${request.date}?`,
@@ -153,12 +159,15 @@ export default function AdminApproveScreen() {
           text: "Reject",
           style: "destructive",
           onPress: async () => {
+            setProcessingId(request.id!);
             try {
               await updateDutyRequestStatus(request.id!, "rejected");
               await updateSheetStatus(request.id!, "rejected");
               setPendingRequests((prev) => prev.filter((r) => r.id !== request.id));
             } catch (error) {
               Alert.alert("Error", "Failed to reject request.");
+            } finally {
+              setProcessingId(null);
             }
           },
         },
@@ -318,22 +327,34 @@ export default function AdminApproveScreen() {
   const renderRightActions = (request: DutyRequest) => (
     <TouchableOpacity
       onPress={() => handleApprove(request)}
-      style={{ backgroundColor: "#22C55E" }}
+      style={{ backgroundColor: "#22C55E", minWidth: 80 }}
       className="justify-center items-center px-5"
     >
-      <MaterialIcons name="check" size={24} color="#fff" />
-      <Text className="text-white text-xs font-semibold mt-1">Approve</Text>
+      {processingId === request.id ? (
+        <ActivityIndicator size="small" color="#fff" />
+      ) : (
+        <>
+          <MaterialIcons name="check" size={24} color="#fff" />
+          <Text className="text-white text-xs font-semibold mt-1">Approve</Text>
+        </>
+      )}
     </TouchableOpacity>
   );
 
   const renderLeftActions = (request: DutyRequest) => (
     <TouchableOpacity
       onPress={() => handleReject(request)}
-      style={{ backgroundColor: "#EF4444" }}
+      style={{ backgroundColor: "#EF4444", minWidth: 80 }}
       className="justify-center items-center px-5"
     >
-      <MaterialIcons name="close" size={24} color="#fff" />
-      <Text className="text-white text-xs font-semibold mt-1">Reject</Text>
+      {processingId === request.id ? (
+        <ActivityIndicator size="small" color="#fff" />
+      ) : (
+        <>
+          <MaterialIcons name="close" size={24} color="#fff" />
+          <Text className="text-white text-xs font-semibold mt-1">Reject</Text>
+        </>
+      )}
     </TouchableOpacity>
   );
 
@@ -516,6 +537,44 @@ export default function AdminApproveScreen() {
             <Text className="text-white text-xs font-bold">{item.dutyType}</Text>
           </View>
         </TouchableOpacity>
+      );
+    }
+
+    // On web, Swipeable doesn't work well — show inline approve/reject buttons
+    if (Platform.OS === "web") {
+      return (
+        <View className="flex-row items-center py-3 px-4 bg-background border-b border-border">
+          <TouchableOpacity onPress={() => handleStaffTap(item)} className="flex-1 flex-row items-center">
+            <View className="w-9 h-9 rounded-full mr-3" style={{ backgroundColor: "#D1D5DB" }} />
+            <View className="flex-1">
+              <Text className="text-sm font-bold text-foreground" numberOfLines={1}>{item.userName}</Text>
+              <Text className="text-xs text-muted">{item.date}</Text>
+            </View>
+            <View style={{ backgroundColor: getDutyColor(item.dutyType) }} className="px-2 py-1 rounded mr-2">
+              <Text className="text-white text-xs font-bold">{item.dutyType}</Text>
+            </View>
+          </TouchableOpacity>
+          {processingId === item.id ? (
+            <ActivityIndicator size="small" color="#4CAF50" />
+          ) : (
+            <View className="flex-row gap-2">
+              <TouchableOpacity
+                onPress={() => handleApprove(item)}
+                style={{ backgroundColor: "#22C55E" }}
+                className="px-3 py-2 rounded-lg"
+              >
+                <MaterialIcons name="check" size={18} color="#fff" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => handleReject(item)}
+                style={{ backgroundColor: "#EF4444" }}
+                className="px-3 py-2 rounded-lg"
+              >
+                <MaterialIcons name="close" size={18} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
       );
     }
 

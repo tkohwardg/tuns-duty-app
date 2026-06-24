@@ -496,8 +496,8 @@ export default function ApprovedDutyScreen() {
         </View>
       </View>
 
-      {/* Approved List - Top (future duties only) */}
-      <View className="mx-3 mt-2 border border-border rounded-xl overflow-hidden" style={{ maxHeight: "30%" }}>
+      {/* Approved List - Top (future duties only) - larger */}
+      <View className="mx-3 mt-2 border border-border rounded-xl overflow-hidden" style={{ flex: 1 }}>
         {futureApproved.length === 0 ? (
           <FlatList
             data={[]}
@@ -523,9 +523,10 @@ export default function ApprovedDutyScreen() {
         )}
       </View>
 
-      {/* Calendar - uses remaining space, larger */}
+      {/* Calendar - compact fixed height, just enough to show all dates */}
       <View
-        className="mx-3 mt-2 mb-2 flex-1 border border-border rounded-xl p-3 bg-surface"
+        className="mx-3 mt-2 mb-2 border border-border rounded-xl p-2 bg-surface"
+        style={{ height: 260 }}
         {...calendarPanResponder.panHandlers}
       >
         <View className="flex-row items-center justify-between mb-2">

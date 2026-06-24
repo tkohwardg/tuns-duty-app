@@ -114,7 +114,7 @@ export default function MyRequestsScreen() {
     }
   };
 
-  const renderLeftActions = (request: DutyRequest) => {
+  const renderRightActions = (request: DutyRequest) => {
     const isCancelling = cancellingId === request.id;
     return (
       <TouchableOpacity
@@ -126,7 +126,9 @@ export default function MyRequestsScreen() {
         {isCancelling ? (
           <ActivityIndicator size="small" color="#fff" />
         ) : (
-          <Text className="text-white font-semibold text-sm">Cancel</Text>
+          <>
+            <Text className="text-white font-semibold text-sm">Cancel</Text>
+          </>
         )}
       </TouchableOpacity>
     );
@@ -139,8 +141,8 @@ export default function MyRequestsScreen() {
           swipeableRefs.current.set(item.id, ref);
         }
       }}
-      renderLeftActions={() => renderLeftActions(item)}
-      overshootLeft={false}
+      renderRightActions={() => renderRightActions(item)}
+      overshootRight={false}
     >
       <View className="flex-row items-center py-4 px-4 bg-background border-b border-border">
         {cancellingId === item.id && (
@@ -200,7 +202,7 @@ export default function MyRequestsScreen() {
           Your requested duty pending approval
         </Text>
         <Text className="text-xs text-muted mt-1">
-          ← Swipe left to cancel request
+          Swipe right → to cancel request
         </Text>
       </View>
 
