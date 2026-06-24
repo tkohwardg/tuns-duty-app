@@ -8,7 +8,6 @@ import {
   GestureResponderEvent,
   PanResponderGestureState,
 } from "react-native";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useColors } from "@/hooks/use-colors";
 
 /**
@@ -286,7 +285,7 @@ export function DatePickerCalendar({
               className="p-2 rounded-full"
               style={{ backgroundColor: colors.surface }}
             >
-              <MaterialIcons name="chevron-left" size={28} color={colors.foreground} />
+              <Text style={{ fontSize: 22, color: colors.foreground, fontWeight: "700" }}>{"\u25c0"}</Text>
             </TouchableOpacity>
             <Text className="text-lg font-bold text-foreground">
               {monthNames[viewMonth]} {viewYear}
@@ -296,7 +295,7 @@ export function DatePickerCalendar({
               className="p-2 rounded-full"
               style={{ backgroundColor: colors.surface }}
             >
-              <MaterialIcons name="chevron-right" size={28} color={colors.foreground} />
+              <Text style={{ fontSize: 22, color: colors.foreground, fontWeight: "700" }}>{"\u25b6"}</Text>
             </TouchableOpacity>
           </View>
 

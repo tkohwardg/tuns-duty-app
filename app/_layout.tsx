@@ -6,8 +6,6 @@ import { AuthProvider, useAuthContext } from "@/lib/auth-context";
 import { SettingsProvider } from "@/lib/settings-context";
 import { useEffect } from "react";
 import { ActivityIndicator, View } from "react-native";
-import { useFonts } from "expo-font";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as SplashScreen from "expo-splash-screen";
 import "../global.css";
 
@@ -38,9 +36,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 }
 
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
-    ...MaterialIcons.font,
-  });
+  const fontsLoaded = true; // No custom fonts needed - using Unicode characters
 
   useEffect(() => {
     if (fontsLoaded) {

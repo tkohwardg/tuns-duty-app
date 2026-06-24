@@ -31,7 +31,6 @@ import {
   getWeekForDate,
   parseDateString,
 } from "@/lib/duty-colors";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Swipeable } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -298,7 +297,7 @@ export default function AdminApproveScreen() {
         <ActivityIndicator size="small" color="#fff" />
       ) : (
         <>
-          <MaterialIcons name="check" size={24} color="#fff" />
+          <Text style={{ fontSize: 20, color: "#fff", fontWeight: "700" }}>{"✓"}</Text>
           <Text style={{ color: "#fff", fontSize: 12, fontWeight: "600", marginTop: 2 }}>Approve</Text>
         </>
       )}
@@ -314,7 +313,7 @@ export default function AdminApproveScreen() {
         <ActivityIndicator size="small" color="#fff" />
       ) : (
         <>
-          <MaterialIcons name="close" size={24} color="#fff" />
+          <Text style={{ fontSize: 20, color: "#fff", fontWeight: "700" }}>{"✗"}</Text>
           <Text style={{ color: "#fff", fontSize: 12, fontWeight: "600", marginTop: 2 }}>Reject</Text>
         </>
       )}
@@ -443,7 +442,7 @@ export default function AdminApproveScreen() {
               alignItems: "center", justifyContent: "center", marginRight: 12,
             }}
           >
-            {isSelected && <MaterialIcons name="check" size={15} color="#fff" />}
+            {isSelected && <Text style={{ fontSize: 12, color: "#fff", fontWeight: "700" }}>{"✓"}</Text>}
           </View>
           <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "#D1D5DB", marginRight: 12 }} />
           <View style={{ flex: 1 }}>
@@ -491,13 +490,13 @@ export default function AdminApproveScreen() {
               onPress={() => handleApprove(item)}
               style={{ backgroundColor: "#22C55E", borderRadius: 8, padding: 10 }}
             >
-              <MaterialIcons name="check" size={20} color="#fff" />
+              <Text style={{ fontSize: 16, color: "#fff", fontWeight: "700" }}>{"✓"}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => handleReject(item)}
               style={{ backgroundColor: "#EF4444", borderRadius: 8, padding: 10 }}
             >
-              <MaterialIcons name="close" size={20} color="#fff" />
+              <Text style={{ fontSize: 16, color: "#fff", fontWeight: "700" }}>{"✗"}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -522,7 +521,7 @@ export default function AdminApproveScreen() {
   if (!isAdmin) {
     return (
       <ScreenContainer className="flex-1 items-center justify-center px-6">
-        <MaterialIcons name="lock" size={48} color="#9BA1A6" />
+        <Text style={{ fontSize: 40, color: "#9BA1A6" }}>{"🔒"}</Text>
         <Text className="text-lg text-muted mt-4 text-center">Admin access required</Text>
       </ScreenContainer>
     );
@@ -573,13 +572,13 @@ export default function AdminApproveScreen() {
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
           <View style={{ flexDirection: "row", alignItems: "center" }}>
             <TouchableOpacity onPress={prevMonth} style={{ padding: 8, borderRadius: 20, backgroundColor: "#f5f5f5" }}>
-              <MaterialIcons name="chevron-left" size={24} color="#11181C" />
+              <Text style={{ fontSize: 20, color: "#11181C", fontWeight: "700" }}>{"◀"}</Text>
             </TouchableOpacity>
             <Text style={{ fontSize: 16, fontWeight: "700", marginHorizontal: 12 }}>
               {String(currentMonth + 1).padStart(2, "0")}/{currentYear}
             </Text>
             <TouchableOpacity onPress={nextMonth} style={{ padding: 8, borderRadius: 20, backgroundColor: "#f5f5f5" }}>
-              <MaterialIcons name="chevron-right" size={24} color="#11181C" />
+              <Text style={{ fontSize: 20, color: "#11181C", fontWeight: "700" }}>{"▶"}</Text>
             </TouchableOpacity>
           </View>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
@@ -640,7 +639,7 @@ export default function AdminApproveScreen() {
                   backgroundColor: isAllSelected ? "#22C55E" : "transparent",
                   alignItems: "center", justifyContent: "center",
                 }}>
-                  {isAllSelected && <MaterialIcons name="check" size={11} color="#fff" />}
+                  {isAllSelected && <Text style={{ fontSize: 10, color: "#fff", fontWeight: "700" }}>{"✓"}</Text>}
                 </View>
                 <Text style={{ fontSize: 12, fontWeight: "600", color: isAllSelected ? "#22C55E" : "#687076" }}>All</Text>
               </TouchableOpacity>
@@ -661,7 +660,7 @@ export default function AdminApproveScreen() {
             renderItem={() => null}
             ListEmptyComponent={
               <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 32 }}>
-                <MaterialIcons name="check-circle" size={40} color="#D1D5DB" />
+                <Text style={{ fontSize: 36, color: "#D1D5DB" }}>{"✓"}</Text>
                 <Text style={{ color: "#687076", fontSize: 14, marginTop: 8 }}>No pending requests</Text>
               </View>
             }
@@ -729,7 +728,7 @@ export default function AdminApproveScreen() {
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
                 <>
-                  <MaterialIcons name="close" size={18} color={selectedIds.size > 0 && !batchProcessing ? "#fff" : "#9CA3AF"} />
+                  <Text style={{ fontSize: 16, color: selectedIds.size > 0 && !batchProcessing ? "#fff" : "#9CA3AF", fontWeight: "700" }}>{"\u2717"}</Text>
                   <Text style={{ fontSize: 15, fontWeight: "700", color: selectedIds.size > 0 && !batchProcessing ? "#fff" : "#9CA3AF" }}>
                     Reject {selectedIds.size > 0 ? `(${selectedIds.size})` : ""}
                   </Text>
@@ -750,7 +749,7 @@ export default function AdminApproveScreen() {
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
                 <>
-                  <MaterialIcons name="check" size={18} color={selectedIds.size > 0 && !batchProcessing ? "#fff" : "#9CA3AF"} />
+                  <Text style={{ fontSize: 16, color: selectedIds.size > 0 && !batchProcessing ? "#fff" : "#9CA3AF", fontWeight: "700" }}>{"\u2713"}</Text>
                   <Text style={{ fontSize: 15, fontWeight: "700", color: selectedIds.size > 0 && !batchProcessing ? "#fff" : "#9CA3AF" }}>
                     Approve {selectedIds.size > 0 ? `(${selectedIds.size})` : ""}
                   </Text>

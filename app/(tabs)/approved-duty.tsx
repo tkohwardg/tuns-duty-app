@@ -8,7 +8,6 @@ import {
   Modal,
   Alert,
   RefreshControl,
-  Dimensions,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useAuthContext } from "@/lib/auth-context";
@@ -24,13 +23,10 @@ import {
   getFirstDayOfMonth,
   formatDateStr,
 } from "@/lib/duty-colors";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Swipeable } from "react-native-gesture-handler";
 import { useNavigation } from "@react-navigation/native";
 import { useColors } from "@/hooks/use-colors";
 import { useSettings } from "@/lib/settings-context";
-
-const SCREEN_HEIGHT = Dimensions.get("window").height;
 
 function parseDateStr(dateStr: string): Date {
   const parts = dateStr.split("/");
@@ -138,6 +134,7 @@ export default function ApprovedDutyScreen() {
 
   const isOverLimit = weeklyHours >= 14;
 
+  // Only reject action for admin (swipe right reveals reject button)
   const handleReject = (request: DutyRequest) => {
     if (!request.id) return;
     Alert.alert(
@@ -162,52 +159,19 @@ export default function ApprovedDutyScreen() {
     );
   };
 
-  const handleCancel = (request: DutyRequest) => {
-    if (!request.id) return;
-    Alert.alert(
-      "Confirm Cancel",
-      `Cancel ${request.userName}'s "${request.dutyType}" on ${request.date}?`,
-      [
-        { text: "No", style: "cancel" },
-        {
-          text: "Yes, Cancel",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await updateDutyRequestStatus(request.id!, "cancelled");
-              await updateSheetStatus(request.id!, "cancelled");
-              setApprovedRequests((prev) => prev.filter((r) => r.id !== request.id));
-            } catch (error) {
-              Alert.alert("Error", "Failed to cancel request.");
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  // Swipe actions for admin
-  const renderRightActions = (request: DutyRequest) => (
-    <TouchableOpacity
-      onPress={() => handleCancel(request)}
-      style={{ backgroundColor: "#F59E0B", justifyContent: "center", alignItems: "center", paddingHorizontal: 20 }}
-    >
-      <MaterialIcons name="cancel" size={22} color="#fff" />
-      <Text style={{ color: "#fff", fontSize: 12, fontWeight: "600", marginTop: 2 }}>Cancel</Text>
-    </TouchableOpacity>
-  );
-
+  // Swipe RIGHT reveals this action panel on the LEFT side (renderLeftActions)
+  // This matches My Requests page pattern where swipe right reveals Cancel
   const renderLeftActions = (request: DutyRequest) => (
     <TouchableOpacity
       onPress={() => handleReject(request)}
-      style={{ backgroundColor: "#EF4444", justifyContent: "center", alignItems: "center", paddingHorizontal: 20 }}
+      style={{ backgroundColor: "#EF4444", justifyContent: "center", alignItems: "center", paddingHorizontal: 24 }}
     >
-      <MaterialIcons name="close" size={22} color="#fff" />
+      <Text style={{ color: "#fff", fontSize: 18, fontWeight: "700" }}>✗</Text>
       <Text style={{ color: "#fff", fontSize: 12, fontWeight: "600", marginTop: 2 }}>Reject</Text>
     </TouchableOpacity>
   );
 
-  // Calendar navigation (button only, no PanResponder to avoid gesture conflicts)
+  // Calendar navigation
   const prevMonth = useCallback(() => {
     setCurrentMonth((m) => {
       if (m === 0) { setCurrentYear((y) => y - 1); return 11; }
@@ -306,7 +270,7 @@ export default function ApprovedDutyScreen() {
       }
     }
 
-    // Build rows of 7 — each row uses flex:1 to distribute evenly within the calendar container
+    // Build rows of 7 — each row uses flex:1 to distribute evenly
     for (let i = 0; i < allCells.length; i += 7) {
       const week = allCells.slice(i, i + 7);
       rows.push(
@@ -382,11 +346,10 @@ export default function ApprovedDutyScreen() {
     );
 
     if (isAdmin) {
+      // Only swipe RIGHT to reveal reject (renderLeftActions only, no renderRightActions)
       return (
         <Swipeable
-          renderRightActions={() => renderRightActions(item)}
           renderLeftActions={() => renderLeftActions(item)}
-          overshootRight={false}
           overshootLeft={false}
         >
           {content}
@@ -412,7 +375,7 @@ export default function ApprovedDutyScreen() {
         <Text className="text-lg font-bold text-foreground">Approved duty</Text>
         {isAdmin && (
           <Text className="text-xs text-muted mt-1">
-            Swipe left to cancel | Swipe right to reject
+            Swipe right → to reject duty
           </Text>
         )}
         <View className="flex-row items-center mt-1">
@@ -439,18 +402,18 @@ export default function ApprovedDutyScreen() {
           <View className="flex-row items-center">
             <TouchableOpacity
               onPress={prevMonth}
-              style={{ padding: 8, borderRadius: 20, backgroundColor: colors.background }}
+              style={{ padding: 10, borderRadius: 20, backgroundColor: colors.background }}
             >
-              <MaterialIcons name="chevron-left" size={24} color={colors.foreground} />
+              <Text style={{ fontSize: 20, color: colors.foreground, fontWeight: "700" }}>◀</Text>
             </TouchableOpacity>
             <Text className="text-base font-bold text-foreground mx-3">
               {String(currentMonth + 1).padStart(2, "0")}/{currentYear}
             </Text>
             <TouchableOpacity
               onPress={nextMonth}
-              style={{ padding: 8, borderRadius: 20, backgroundColor: colors.background }}
+              style={{ padding: 10, borderRadius: 20, backgroundColor: colors.background }}
             >
-              <MaterialIcons name="chevron-right" size={24} color={colors.foreground} />
+              <Text style={{ fontSize: 20, color: colors.foreground, fontWeight: "700" }}>▶</Text>
             </TouchableOpacity>
           </View>
           <View className="flex-row items-center" style={{ gap: 6 }}>
@@ -468,7 +431,7 @@ export default function ApprovedDutyScreen() {
           </View>
         </View>
 
-        {/* Calendar grid — rows use flex:1 to fill remaining space evenly */}
+        {/* Calendar grid */}
         <View style={{ flex: 1 }}>
           {renderCalendar()}
         </View>

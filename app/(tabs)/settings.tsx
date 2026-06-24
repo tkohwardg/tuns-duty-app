@@ -16,7 +16,6 @@ import { useAuthContext } from "@/lib/auth-context";
 import { useSettings, type DutyOption } from "@/lib/settings-context";
 import { getAllApprovedRequests, type DutyRequest } from "@/lib/firebase";
 import { getAuth, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { DatePickerCalendar } from "@/components/date-picker-calendar";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
@@ -268,7 +267,7 @@ export default function SettingsScreen() {
   if (!isAdmin) {
     return (
       <ScreenContainer className="flex-1 items-center justify-center">
-        <MaterialIcons name="lock" size={48} color="#9CA3AF" />
+        <Text style={{ fontSize: 40, color: "#9CA3AF" }}>{"\ud83d\udd12"}</Text>
         <Text className="text-lg text-muted mt-4 text-center">
           Admin access required
         </Text>
@@ -346,7 +345,7 @@ export default function SettingsScreen() {
                 <Text className="text-xs text-muted">({option.hours}h)</Text>
               </View>
               <TouchableOpacity onPress={() => handleRemoveDutyOption(option.label)}>
-                <MaterialIcons name="delete-outline" size={20} color="#EF4444" />
+                <Text style={{ fontSize: 18, color: "#EF4444" }}>{"\ud83d\uddd1"}</Text>
               </TouchableOpacity>
             </View>
           ))}
