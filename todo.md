@@ -70,6 +70,6 @@
 - [x] Fix: Approved page swipe not responding - removed PanResponder from calendar (was intercepting gestures), use button-only month navigation
 - [x] Fix: Approved page calendar size should be 2/3 of screen with flex:2 layout, all dates displayed properly
 - [x] Fix: Admin batch approve/reject buttons not responding - direct action without Alert confirmation
-- [ ] Fix: All icons (arrows, tick, cross, bin) showing as blank squares on desktop and mobile - replace MaterialIcons with Unicode text characters
-- [ ] Fix: Approved page - remove swipe left function, keep only swipe right to reject, and fix swipe not working
-- [ ] Fix: Bottom navigation bar make taller for easier pressing on mobile
+- [x] Fix: All icons (arrows, tick, cross, bin) showing as blank squares on desktop and mobile - replace MaterialIcons with Unicode text characters
+- [x] Fix: Approved page - remove swipe left function, keep only swipe right to reject, and fix swipe not working
+- [x] Fix: Bottom navigation bar make taller for easier pressing on mobile
