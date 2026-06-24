@@ -73,3 +73,7 @@
 - [x] Fix: All icons (arrows, tick, cross, bin) showing as blank squares on desktop and mobile - replace MaterialIcons with Unicode text characters
 - [x] Fix: Approved page - remove swipe left function, keep only swipe right to reject, and fix swipe not working
 - [x] Fix: Bottom navigation bar make taller for easier pressing on mobile
+- [x] Fix: Show error on submit if same duty type on same date already approved (not just pending)
+- [x] Fix: Admin reject in Approved page has no response - debug and fix
+- [x] Fix: Add swipe left/right gesture to all calendars for month navigation (admin-approve, approved-duty, date-picker-calendar)
+- [x] Fix: Calendar container box not responsive to calendar content height - remove fixed height, use auto/content sizing

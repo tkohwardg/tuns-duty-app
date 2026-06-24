@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   Text,
   View,
@@ -8,9 +8,11 @@ import {
   ActivityIndicator,
   Modal,
   RefreshControl,
-  Dimensions,
   Animated,
   Platform,
+  PanResponder,
+  GestureResponderEvent,
+  PanResponderGestureState,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useAuthContext } from "@/lib/auth-context";
@@ -34,8 +36,6 @@ import {
 import { Swipeable } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const SCREEN_HEIGHT = Dimensions.get("window").height;
-const CALENDAR_HEIGHT = SCREEN_HEIGHT / 3;
 
 function parseDateStr(dateStr: string): Date {
   const parts = dateStr.split("/");
@@ -257,6 +257,34 @@ export default function AdminApproveScreen() {
     });
   }, []);
 
+  // PanResponder for swipe month navigation — use refs to avoid stale closure
+  const prevMonthRef = useRef(prevMonth);
+  const nextMonthRef = useRef(nextMonth);
+  prevMonthRef.current = prevMonth;
+  nextMonthRef.current = nextMonth;
+
+  const calendarPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (
+        _: GestureResponderEvent,
+        gestureState: PanResponderGestureState
+      ) => {
+        return Math.abs(gestureState.dx) > 30 && Math.abs(gestureState.dy) < 40;
+      },
+      onPanResponderRelease: (
+        _: GestureResponderEvent,
+        gestureState: PanResponderGestureState
+      ) => {
+        if (gestureState.dx > 50) {
+          prevMonthRef.current();
+        } else if (gestureState.dx < -50) {
+          nextMonthRef.current();
+        }
+      },
+    })
+  ).current;
+
   const getApprovedForAnyDate = (day: number, month: number, year: number): DutyRequest[] => {
     const dateStr = formatDateStr(day, month, year);
     return approvedRequests.filter((r) => r.date === dateStr);
@@ -411,7 +439,11 @@ export default function AdminApproveScreen() {
 
     const rows: React.ReactNode[] = [];
     for (let i = 0; i < cells.length; i += 7) {
-      rows.push(<View key={`row-${i}`} className="flex-row">{cells.slice(i, i + 7)}</View>);
+      rows.push(
+        <View key={`row-${i}`} style={{ flexDirection: "row", height: i === 0 ? 28 : 50 }}>
+          {cells.slice(i, i + 7)}
+        </View>
+      );
     }
     return rows;
   };
@@ -567,7 +599,7 @@ export default function AdminApproveScreen() {
       {/* Calendar */}
       <View
         className="mx-3 border border-border rounded-xl p-3 bg-surface"
-        style={{ height: CALENDAR_HEIGHT }}
+        style={{ flex: 1 }}
       >
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
           <View style={{ flexDirection: "row", alignItems: "center" }}>
@@ -595,7 +627,10 @@ export default function AdminApproveScreen() {
             ))}
           </View>
         </View>
-        {renderCalendar()}
+        {/* Calendar grid with swipe support */}
+        <View style={{ flex: 1 }} {...calendarPanResponder.panHandlers}>
+          {renderCalendar()}
+        </View>
       </View>
 
       {/* Pending Requests List */}

@@ -118,8 +118,11 @@ export default function RequestDutyScreen() {
 
     setIsSubmitting(true);
     try {
-      // Check for duplicates first
-      for (const req of validRequests) {
+      // Check for duplicates first — show inline row errors
+      const dupErrors: (string | null)[] = [null, null, null, null, null];
+      let hasDupError = false;
+      for (let i = 0; i < validRequests.length; i++) {
+        const req = validRequests[i];
         if (!req.date || !req.dutyType) continue;
         const dateStr = formatDate(req.date);
         const isDuplicate = await checkDuplicateRequest(
@@ -128,13 +131,20 @@ export default function RequestDutyScreen() {
           req.dutyType
         );
         if (isDuplicate) {
-          Alert.alert(
-            "Duplicate Request",
-            `You already have a pending/approved "${req.dutyType}" request on ${dateStr}. Please choose a different date or duty type.`
+          // Find the original index in requests array
+          const origIdx = requests.findIndex(
+            (r) => r.date && formatDate(r.date) === dateStr && r.dutyType === req.dutyType
           );
-          setIsSubmitting(false);
-          return;
+          if (origIdx >= 0) {
+            dupErrors[origIdx] = `"${req.dutyType}" on ${dateStr} already approved or pending`;
+          }
+          hasDupError = true;
         }
+      }
+      if (hasDupError) {
+        setRowErrors(dupErrors);
+        setIsSubmitting(false);
+        return;
       }
 
       for (const req of validRequests) {

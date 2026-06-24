@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   Text,
   View,
@@ -8,6 +8,9 @@ import {
   Modal,
   Alert,
   RefreshControl,
+  PanResponder,
+  GestureResponderEvent,
+  PanResponderGestureState,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useAuthContext } from "@/lib/auth-context";
@@ -49,6 +52,7 @@ export default function ApprovedDutyScreen() {
   const [selectedDateDuties, setSelectedDateDuties] = useState<DutyRequest[]>([]);
   const [showDutyModal, setShowDutyModal] = useState(false);
   const [selectedDateStr, setSelectedDateStr] = useState("");
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
 
   const loadApproved = useCallback(async () => {
     try {
@@ -134,44 +138,46 @@ export default function ApprovedDutyScreen() {
 
   const isOverLimit = weeklyHours >= 14;
 
-  // Only reject action for admin (swipe right reveals reject button)
-  const handleReject = (request: DutyRequest) => {
-    if (!request.id) return;
-    Alert.alert(
-      "Confirm Reject",
-      `Reject ${request.userName}'s "${request.dutyType}" on ${request.date}?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Reject",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await updateDutyRequestStatus(request.id!, "rejected");
-              await updateSheetStatus(request.id!, "rejected");
-              setApprovedRequests((prev) => prev.filter((r) => r.id !== request.id));
-            } catch (error) {
-              Alert.alert("Error", "Failed to reject request.");
-            }
-          },
-        },
-      ]
-    );
-  };
+  // Direct reject action — no Alert.alert (which can be blocked by Swipeable gesture system)
+  const handleReject = useCallback(async (request: DutyRequest) => {
+    if (!request.id || rejectingId === request.id) return;
+    setRejectingId(request.id);
+    try {
+      await updateDutyRequestStatus(request.id, "rejected");
+      await updateSheetStatus(request.id, "rejected");
+      setApprovedRequests((prev) => prev.filter((r) => r.id !== request.id));
+    } catch (error) {
+      Alert.alert("Error", "Failed to reject request.");
+    } finally {
+      setRejectingId(null);
+    }
+  }, [rejectingId]);
 
   // Swipe RIGHT reveals this action panel on the LEFT side (renderLeftActions)
-  // This matches My Requests page pattern where swipe right reveals Cancel
   const renderLeftActions = (request: DutyRequest) => (
     <TouchableOpacity
       onPress={() => handleReject(request)}
-      style={{ backgroundColor: "#EF4444", justifyContent: "center", alignItems: "center", paddingHorizontal: 24 }}
+      disabled={rejectingId === request.id}
+      style={{
+        backgroundColor: "#EF4444",
+        justifyContent: "center",
+        alignItems: "center",
+        paddingHorizontal: 28,
+        minWidth: 80,
+      }}
     >
-      <Text style={{ color: "#fff", fontSize: 18, fontWeight: "700" }}>✗</Text>
-      <Text style={{ color: "#fff", fontSize: 12, fontWeight: "600", marginTop: 2 }}>Reject</Text>
+      {rejectingId === request.id ? (
+        <ActivityIndicator size="small" color="#fff" />
+      ) : (
+        <>
+          <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700" }}>✗</Text>
+          <Text style={{ color: "#fff", fontSize: 12, fontWeight: "600", marginTop: 2 }}>Reject</Text>
+        </>
+      )}
     </TouchableOpacity>
   );
 
-  // Calendar navigation
+  // Calendar navigation with PanResponder for swipe (using refs to avoid stale closure)
   const prevMonth = useCallback(() => {
     setCurrentMonth((m) => {
       if (m === 0) { setCurrentYear((y) => y - 1); return 11; }
@@ -185,6 +191,33 @@ export default function ApprovedDutyScreen() {
       return m + 1;
     });
   }, []);
+
+  const prevMonthRef = useRef(prevMonth);
+  const nextMonthRef = useRef(nextMonth);
+  prevMonthRef.current = prevMonth;
+  nextMonthRef.current = nextMonth;
+
+  const calendarPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (
+        _: GestureResponderEvent,
+        gestureState: PanResponderGestureState
+      ) => {
+        return Math.abs(gestureState.dx) > 30 && Math.abs(gestureState.dy) < 40;
+      },
+      onPanResponderRelease: (
+        _: GestureResponderEvent,
+        gestureState: PanResponderGestureState
+      ) => {
+        if (gestureState.dx > 50) {
+          prevMonthRef.current();
+        } else if (gestureState.dx < -50) {
+          nextMonthRef.current();
+        }
+      },
+    })
+  ).current;
 
   // Get approved duties for any date
   const getApprovedForAnyDate = (day: number, month: number, year: number): DutyRequest[] => {
@@ -213,7 +246,7 @@ export default function ApprovedDutyScreen() {
     }
   };
 
-  // Calendar render - fills 2/3 of the available space
+  // Calendar render — auto-height, no fixed container
   const renderCalendar = () => {
     const daysInMonth = getDaysInMonth(currentYear, currentMonth);
     const firstDay = getFirstDayOfMonth(currentYear, currentMonth);
@@ -232,10 +265,10 @@ export default function ApprovedDutyScreen() {
 
     // Header row
     rows.push(
-      <View key="header" className="flex-row" style={{ marginBottom: 4 }}>
+      <View key="header" style={{ flexDirection: "row", marginBottom: 4 }}>
         {weekDays.map((day, i) => (
-          <View key={`h-${i}`} className="flex-1 items-center" style={{ paddingVertical: 4 }}>
-            <Text className="text-xs text-muted font-medium">{day}</Text>
+          <View key={`h-${i}`} style={{ flex: 1, alignItems: "center", paddingVertical: 4 }}>
+            <Text style={{ fontSize: 11, color: colors.muted, fontWeight: "500" }}>{day}</Text>
           </View>
         ))}
       </View>
@@ -270,11 +303,11 @@ export default function ApprovedDutyScreen() {
       }
     }
 
-    // Build rows of 7 — each row uses flex:1 to distribute evenly
+    // Build rows of 7 — fixed height per row so all rows are equal
     for (let i = 0; i < allCells.length; i += 7) {
       const week = allCells.slice(i, i + 7);
       rows.push(
-        <View key={`row-${i}`} className="flex-row" style={{ flex: 1 }}>
+        <View key={`row-${i}`} style={{ flexDirection: "row", height: 52 }}>
           {week.map((cell, idx) => {
             const isToday =
               isCurrentMonth && !cell.isOverflow && todayDate.getDate() === cell.day;
@@ -284,7 +317,7 @@ export default function ApprovedDutyScreen() {
             return (
               <TouchableOpacity
                 key={`${i}-${idx}`}
-                className="flex-1 items-center justify-center"
+                style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
                 onPress={() => {
                   if (cell.isOverflow) {
                     handleOverflowDateTap(cell.day, cell.month, cell.year);
@@ -294,17 +327,27 @@ export default function ApprovedDutyScreen() {
                 }}
               >
                 <View
-                  className={`w-8 h-8 rounded-full items-center justify-center ${isToday ? "bg-primary" : ""}`}
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 16,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: isToday ? "#4CAF50" : "transparent",
+                  }}
                 >
                   <Text
-                    className={`text-sm ${isToday ? "text-white font-bold" : cell.isOverflow ? "" : "text-foreground"}`}
-                    style={cell.isOverflow ? { color: "#9CA3AF" } : undefined}
+                    style={{
+                      fontSize: 13,
+                      fontWeight: isToday ? "700" : "400",
+                      color: isToday ? "#fff" : cell.isOverflow ? "#9CA3AF" : colors.foreground,
+                    }}
                   >
                     {cell.day}
                   </Text>
                 </View>
                 {hasApproved && (
-                  <View className="flex-row" style={{ marginTop: 2, gap: 2 }}>
+                  <View style={{ flexDirection: "row", marginTop: 2, gap: 2 }}>
                     {approvedForDay.slice(0, 4).map((r, dotIdx) => (
                       <View
                         key={dotIdx}
@@ -331,22 +374,22 @@ export default function ApprovedDutyScreen() {
 
   const renderApprovedItem = ({ item }: { item: DutyRequest }) => {
     const content = (
-      <View className="flex-row items-center py-3 px-4 bg-background border-b border-border">
-        <View className="w-9 h-9 rounded-full mr-3" style={{ backgroundColor: "#D1D5DB" }} />
-        <View className="flex-1">
-          <Text className="text-sm font-bold text-foreground" numberOfLines={1}>
+      <View style={{ flexDirection: "row", alignItems: "center", paddingVertical: 12, paddingHorizontal: 16, backgroundColor: colors.background, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+        <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "#D1D5DB", marginRight: 12 }} />
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground }} numberOfLines={1}>
             {item.userName}
           </Text>
-          <Text className="text-xs text-muted">{item.date}</Text>
+          <Text style={{ fontSize: 12, color: colors.muted }}>{item.date}</Text>
         </View>
-        <View style={{ backgroundColor: getDutyColor(item.dutyType) }} className="px-2 py-1 rounded">
-          <Text className="text-white text-xs font-bold">{item.dutyType}</Text>
+        <View style={{ backgroundColor: getDutyColor(item.dutyType), paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 }}>
+          <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>{item.dutyType}</Text>
         </View>
       </View>
     );
 
     if (isAdmin) {
-      // Only swipe RIGHT to reveal reject (renderLeftActions only, no renderRightActions)
+      // Swipe RIGHT to reveal reject button (renderLeftActions)
       return (
         <Swipeable
           renderLeftActions={() => renderLeftActions(item)}
@@ -371,81 +414,95 @@ export default function ApprovedDutyScreen() {
   return (
     <ScreenContainer className="flex-1">
       {/* Header with weekly hours */}
-      <View className="items-center py-2 border-b border-border">
-        <Text className="text-lg font-bold text-foreground">Approved duty</Text>
+      <View style={{ alignItems: "center", paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+        <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground }}>Approved duty</Text>
         {isAdmin && (
-          <Text className="text-xs text-muted mt-1">
+          <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>
             Swipe right → to reject duty
           </Text>
         )}
-        <View className="flex-row items-center mt-1">
-          <Text className="text-xs text-muted">This week (Sun-Sat): </Text>
+        <View style={{ flexDirection: "row", alignItems: "center", marginTop: 4 }}>
+          <Text style={{ fontSize: 12, color: colors.muted }}>This week (Sun-Sat): </Text>
           <Text
-            className={`text-xs ${isOverLimit ? "font-bold" : ""}`}
-            style={{ color: isOverLimit ? "#EF4444" : colors.muted }}
+            style={{
+              fontSize: 12,
+              fontWeight: isOverLimit ? "700" : "400",
+              color: isOverLimit ? "#EF4444" : colors.muted,
+            }}
           >
             {weeklyHours}h
           </Text>
           {isOverLimit && (
-            <Text className="text-xs font-bold" style={{ color: "#EF4444" }}> (≥14h)</Text>
+            <Text style={{ fontSize: 12, fontWeight: "700", color: "#EF4444" }}> (≥14h)</Text>
           )}
         </View>
       </View>
 
-      {/* Calendar — takes 2/3 of available space */}
+      {/* Calendar — auto-height, takes 2/3 of screen via flex:2 */}
       <View
-        className="mx-3 mt-2 border border-border rounded-xl p-3 bg-surface"
-        style={{ flex: 2 }}
+        style={{
+          flex: 2,
+          marginHorizontal: 12,
+          marginTop: 8,
+          borderWidth: 1,
+          borderColor: colors.border,
+          borderRadius: 12,
+          padding: 12,
+          backgroundColor: colors.surface,
+          overflow: "hidden",
+        }}
       >
         {/* Month navigation header */}
-        <View className="flex-row items-center justify-between mb-2">
-          <View className="flex-row items-center">
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
             <TouchableOpacity
               onPress={prevMonth}
               style={{ padding: 10, borderRadius: 20, backgroundColor: colors.background }}
             >
-              <Text style={{ fontSize: 20, color: colors.foreground, fontWeight: "700" }}>◀</Text>
+              <Text style={{ fontSize: 18, color: colors.foreground, fontWeight: "700" }}>◀</Text>
             </TouchableOpacity>
-            <Text className="text-base font-bold text-foreground mx-3">
+            <Text style={{ fontSize: 16, fontWeight: "700", color: colors.foreground, marginHorizontal: 12 }}>
               {String(currentMonth + 1).padStart(2, "0")}/{currentYear}
             </Text>
             <TouchableOpacity
               onPress={nextMonth}
               style={{ padding: 10, borderRadius: 20, backgroundColor: colors.background }}
             >
-              <Text style={{ fontSize: 20, color: colors.foreground, fontWeight: "700" }}>▶</Text>
+              <Text style={{ fontSize: 18, color: colors.foreground, fontWeight: "700" }}>▶</Text>
             </TouchableOpacity>
           </View>
-          <View className="flex-row items-center" style={{ gap: 6 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             {[
               { color: "#EF4444", label: "A" },
               { color: "#3B82F6", label: "P" },
               { color: "#22C55E", label: "9-17" },
               { color: "#86EFAC", label: "9-13" },
             ].map(({ color, label }) => (
-              <View key={label} className="flex-row items-center">
+              <View key={label} style={{ flexDirection: "row", alignItems: "center" }}>
                 <View style={{ backgroundColor: color, width: 8, height: 8, borderRadius: 4 }} />
-                <Text className="text-xs text-muted ml-1">{label}</Text>
+                <Text style={{ fontSize: 10, color: colors.muted, marginLeft: 3 }}>{label}</Text>
               </View>
             ))}
           </View>
         </View>
 
-        {/* Calendar grid */}
-        <View style={{ flex: 1 }}>
-          {renderCalendar()}
+        {/* Calendar grid with swipe support — fills remaining space */}
+        <View style={{ flex: 1 }} {...calendarPanResponder.panHandlers}>
+          <View style={{ flex: 1 }}>
+            {renderCalendar()}
+          </View>
         </View>
       </View>
 
       {/* Approved List — takes 1/3 of available space */}
-      <View className="mx-3 mt-2 mb-2 border border-border rounded-xl overflow-hidden" style={{ flex: 1 }}>
+      <View style={{ flex: 1, marginHorizontal: 12, marginTop: 8, marginBottom: 8, borderWidth: 1, borderColor: colors.border, borderRadius: 12, overflow: "hidden" }}>
         {futureApproved.length === 0 ? (
           <FlatList
             data={[]}
             renderItem={() => null}
             ListEmptyComponent={
-              <View className="items-center justify-center py-6">
-                <Text className="text-muted text-sm">No upcoming approved duties</Text>
+              <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 24 }}>
+                <Text style={{ color: colors.muted, fontSize: 14 }}>No upcoming approved duties</Text>
               </View>
             }
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
@@ -467,20 +524,20 @@ export default function ApprovedDutyScreen() {
         animationType="fade"
         onRequestClose={() => setShowDutyModal(false)}
       >
-        <View className="flex-1 justify-center px-6" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
-          <View className="bg-background rounded-2xl p-4 max-h-[60%]">
-            <Text className="text-lg font-bold text-foreground text-center mb-3">
+        <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 24, backgroundColor: "rgba(0,0,0,0.5)" }}>
+          <View style={{ backgroundColor: colors.background, borderRadius: 16, padding: 16, maxHeight: "60%" }}>
+            <Text style={{ fontSize: 16, fontWeight: "700", color: colors.foreground, textAlign: "center", marginBottom: 12 }}>
               Approved Duties — {selectedDateStr}
             </Text>
             <FlatList
               data={selectedDateDuties}
               renderItem={({ item }) => (
-                <View className="flex-row items-center py-2 border-b border-border">
-                  <View className="flex-1">
-                    <Text className="text-sm font-bold text-foreground">{item.userName}</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground }}>{item.userName}</Text>
                   </View>
-                  <View style={{ backgroundColor: getDutyColor(item.dutyType) }} className="px-2 py-1 rounded">
-                    <Text className="text-white text-xs font-bold">{item.dutyType}</Text>
+                  <View style={{ backgroundColor: getDutyColor(item.dutyType), paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 }}>
+                    <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>{item.dutyType}</Text>
                   </View>
                 </View>
               )}
@@ -488,9 +545,9 @@ export default function ApprovedDutyScreen() {
             />
             <TouchableOpacity
               onPress={() => setShowDutyModal(false)}
-              className="mt-3 py-2.5 rounded-xl items-center bg-primary"
+              style={{ marginTop: 12, paddingVertical: 10, borderRadius: 12, alignItems: "center", backgroundColor: "#4CAF50" }}
             >
-              <Text className="text-white font-semibold">Close</Text>
+              <Text style={{ color: "#fff", fontWeight: "600" }}>Close</Text>
             </TouchableOpacity>
           </View>
         </View>
