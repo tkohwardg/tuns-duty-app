@@ -50,19 +50,16 @@ export default function RequestDutyScreen() {
   const [showDatePicker, setShowDatePicker] = useState<number | null>(null);
   const [showDutyPicker, setShowDutyPicker] = useState<number | null>(null);
 
-  const clearRowError = (index: number) => {
-    setRowErrors((prev) => {
-      const updated = [...prev];
-      updated[index] = null;
-      return updated;
-    });
-  };
-
   const handleReset = (index: number) => {
     const updated = [...requests];
     updated[index] = { date: null, dutyType: null };
     setRequests(updated);
-    clearRowError(index);
+    // Clear error for this row when reset
+    setRowErrors((prev) => {
+      const errs = [...prev];
+      errs[index] = null;
+      return errs;
+    });
   };
 
   const handleDateSelect = (index: number, date: Date) => {
@@ -70,16 +67,12 @@ export default function RequestDutyScreen() {
     updated[index].date = date;
     setRequests(updated);
     setShowDatePicker(null);
-    // Check if duty is missing
-    if (!updated[index].dutyType) {
-      setRowErrors((prev) => {
-        const errs = [...prev];
-        errs[index] = "Please also select a duty type";
-        return errs;
-      });
-    } else {
-      clearRowError(index);
-    }
+    // Clear error for this row when user makes a change (they'll see it again on submit if still incomplete)
+    setRowErrors((prev) => {
+      const errs = [...prev];
+      errs[index] = null;
+      return errs;
+    });
   };
 
   const handleDutySelect = (index: number, duty: DutyType) => {
@@ -87,20 +80,16 @@ export default function RequestDutyScreen() {
     updated[index].dutyType = duty;
     setRequests(updated);
     setShowDutyPicker(null);
-    // Check if date is missing
-    if (!updated[index].date) {
-      setRowErrors((prev) => {
-        const errs = [...prev];
-        errs[index] = "Please also select a date";
-        return errs;
-      });
-    } else {
-      clearRowError(index);
-    }
+    // Clear error for this row
+    setRowErrors((prev) => {
+      const errs = [...prev];
+      errs[index] = null;
+      return errs;
+    });
   };
 
   const handleSubmit = async () => {
-    // Validate: neither date nor duty option allowed blank (if one is filled, both must be)
+    // Validate: if one field is filled, both must be filled
     const newErrors: (string | null)[] = [null, null, null, null, null];
     let hasError = false;
     for (let i = 0; i < requests.length; i++) {
@@ -261,7 +250,7 @@ export default function RequestDutyScreen() {
                 className="text-xs px-2 mt-1"
                 style={{ color: "#EF4444" }}
               >
-                ⚠ {rowErrors[index]}
+                {rowErrors[index]}
               </Text>
             )}
           </View>

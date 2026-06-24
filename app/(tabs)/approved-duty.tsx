@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Text,
   View,
@@ -8,9 +8,7 @@ import {
   Modal,
   Alert,
   RefreshControl,
-  PanResponder,
-  GestureResponderEvent,
-  PanResponderGestureState,
+  Dimensions,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useAuthContext } from "@/lib/auth-context";
@@ -25,13 +23,14 @@ import {
   getDaysInMonth,
   getFirstDayOfMonth,
   formatDateStr,
-  parseDateString,
 } from "@/lib/duty-colors";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Swipeable } from "react-native-gesture-handler";
 import { useNavigation } from "@react-navigation/native";
 import { useColors } from "@/hooks/use-colors";
 import { useSettings } from "@/lib/settings-context";
+
+const SCREEN_HEIGHT = Dimensions.get("window").height;
 
 function parseDateStr(dateStr: string): Date {
   const parts = dateStr.split("/");
@@ -115,8 +114,6 @@ export default function ApprovedDutyScreen() {
     weekEnd.setDate(weekStart.getDate() + 6);
     weekEnd.setHours(23, 59, 59, 999);
 
-    // For non-admin, only count current user's duties
-    // For admin, count all duties
     const weekDuties = approvedRequests.filter((r) => {
       if (!isAdmin && userProfile?.uid && r.userId !== userProfile.uid) return false;
       const d = parseDateStr(r.date);
@@ -125,12 +122,10 @@ export default function ApprovedDutyScreen() {
 
     let totalHours = 0;
     for (const duty of weekDuties) {
-      // Try to match from settings first, then use defaults
       const option = settings.dutyOptions.find((o) => o.label === duty.dutyType);
       if (option) {
         totalHours += option.hours;
       } else {
-        // Fallback defaults
         if (duty.dutyType === "A" || duty.dutyType === "P" || duty.dutyType === "0900-1700") {
           totalHours += 7;
         } else if (duty.dutyType === "0900-1300") {
@@ -191,92 +186,50 @@ export default function ApprovedDutyScreen() {
     );
   };
 
-  // Admin swipe: left to cancel, right to reject
+  // Swipe actions for admin
   const renderRightActions = (request: DutyRequest) => (
     <TouchableOpacity
       onPress={() => handleCancel(request)}
-      style={{ backgroundColor: "#F59E0B" }}
-      className="justify-center items-center px-5"
+      style={{ backgroundColor: "#F59E0B", justifyContent: "center", alignItems: "center", paddingHorizontal: 20 }}
     >
       <MaterialIcons name="cancel" size={22} color="#fff" />
-      <Text className="text-white text-xs font-semibold mt-1">Cancel</Text>
+      <Text style={{ color: "#fff", fontSize: 12, fontWeight: "600", marginTop: 2 }}>Cancel</Text>
     </TouchableOpacity>
   );
 
   const renderLeftActions = (request: DutyRequest) => (
     <TouchableOpacity
       onPress={() => handleReject(request)}
-      style={{ backgroundColor: "#EF4444" }}
-      className="justify-center items-center px-5"
+      style={{ backgroundColor: "#EF4444", justifyContent: "center", alignItems: "center", paddingHorizontal: 20 }}
     >
       <MaterialIcons name="close" size={22} color="#fff" />
-      <Text className="text-white text-xs font-semibold mt-1">Reject</Text>
+      <Text style={{ color: "#fff", fontSize: 12, fontWeight: "600", marginTop: 2 }}>Reject</Text>
     </TouchableOpacity>
   );
 
-  // Use refs to avoid stale closure in PanResponder
-  const monthRef = useRef(currentMonth);
-  const yearRef = useRef(currentYear);
-  monthRef.current = currentMonth;
-  yearRef.current = currentYear;
-
+  // Calendar navigation (button only, no PanResponder to avoid gesture conflicts)
   const prevMonth = useCallback(() => {
     setCurrentMonth((m) => {
-      if (m === 0) {
-        setCurrentYear((y) => y - 1);
-        return 11;
-      }
+      if (m === 0) { setCurrentYear((y) => y - 1); return 11; }
       return m - 1;
     });
   }, []);
 
   const nextMonth = useCallback(() => {
     setCurrentMonth((m) => {
-      if (m === 11) {
-        setCurrentYear((y) => y + 1);
-        return 0;
-      }
+      if (m === 11) { setCurrentYear((y) => y + 1); return 0; }
       return m + 1;
     });
   }, []);
 
-  // Use refs for stable PanResponder callbacks
-  const prevMonthRef = useRef(prevMonth);
-  const nextMonthRef = useRef(nextMonth);
-  prevMonthRef.current = prevMonth;
-  nextMonthRef.current = nextMonth;
-
-  const calendarPanResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (
-        _: GestureResponderEvent,
-        gestureState: PanResponderGestureState
-      ) => {
-        return Math.abs(gestureState.dx) > 30 && Math.abs(gestureState.dy) < 40;
-      },
-      onPanResponderRelease: (
-        _: GestureResponderEvent,
-        gestureState: PanResponderGestureState
-      ) => {
-        if (gestureState.dx > 50) {
-          prevMonthRef.current();
-        } else if (gestureState.dx < -50) {
-          nextMonthRef.current();
-        }
-      },
-    })
-  ).current;
-
-  // Get approved duties for any date (supports overflow months)
+  // Get approved duties for any date
   const getApprovedForAnyDate = (day: number, month: number, year: number): DutyRequest[] => {
     const dateStr = formatDateStr(day, month, year);
     return approvedRequests.filter((r) => r.date === dateStr);
   };
 
-  const getApprovedForDate = (day: number): DutyRequest[] => {
-    return getApprovedForAnyDate(day, currentMonth, currentYear);
-  };
+  const getApprovedForDate = (day: number): DutyRequest[] =>
+    getApprovedForAnyDate(day, currentMonth, currentYear);
 
   const handleDateTap = (day: number) => {
     const duties = getApprovedForDate(day);
@@ -296,7 +249,7 @@ export default function ApprovedDutyScreen() {
     }
   };
 
-  // Calendar render with overflow days - larger cells and dots
+  // Calendar render - fills 2/3 of the available space
   const renderCalendar = () => {
     const daysInMonth = getDaysInMonth(currentYear, currentMonth);
     const firstDay = getFirstDayOfMonth(currentYear, currentMonth);
@@ -304,12 +257,9 @@ export default function ApprovedDutyScreen() {
     const isCurrentMonth =
       todayDate.getMonth() === currentMonth && todayDate.getFullYear() === currentYear;
 
-    // Previous month info for leading overflow
     const prevMonthNum = currentMonth === 0 ? 11 : currentMonth - 1;
     const prevYearNum = currentMonth === 0 ? currentYear - 1 : currentYear;
     const daysInPrevMonth = getDaysInMonth(prevYearNum, prevMonthNum);
-
-    // Next month info for trailing overflow
     const nextMonthNum = currentMonth === 11 ? 0 : currentMonth + 1;
     const nextYearNum = currentMonth === 11 ? currentYear + 1 : currentYear;
 
@@ -318,9 +268,9 @@ export default function ApprovedDutyScreen() {
 
     // Header row
     rows.push(
-      <View key="header" className="flex-row mb-1">
+      <View key="header" className="flex-row" style={{ marginBottom: 4 }}>
         {weekDays.map((day, i) => (
-          <View key={`h-${i}`} className="flex-1 items-center py-1">
+          <View key={`h-${i}`} className="flex-1 items-center" style={{ paddingVertical: 4 }}>
             <Text className="text-xs text-muted font-medium">{day}</Text>
           </View>
         ))}
@@ -347,7 +297,7 @@ export default function ApprovedDutyScreen() {
       allCells.push({ day, month: currentMonth, year: currentYear, isOverflow: false });
     }
 
-    // Trailing overflow - fill to complete the last row
+    // Trailing overflow to complete last row
     const remainder = allCells.length % 7;
     if (remainder > 0) {
       const trailingCount = 7 - remainder;
@@ -356,11 +306,11 @@ export default function ApprovedDutyScreen() {
       }
     }
 
-    // Build rows of 7
+    // Build rows of 7 — each row uses flex:1 to distribute evenly within the calendar container
     for (let i = 0; i < allCells.length; i += 7) {
       const week = allCells.slice(i, i + 7);
       rows.push(
-        <View key={`row-${i}`} className="flex-row" style={{ marginVertical: 3 }}>
+        <View key={`row-${i}`} className="flex-row" style={{ flex: 1 }}>
           {week.map((cell, idx) => {
             const isToday =
               isCurrentMonth && !cell.isOverflow && todayDate.getDate() === cell.day;
@@ -370,8 +320,7 @@ export default function ApprovedDutyScreen() {
             return (
               <TouchableOpacity
                 key={`${i}-${idx}`}
-                className="flex-1 items-center"
-                style={{ paddingVertical: 4 }}
+                className="flex-1 items-center justify-center"
                 onPress={() => {
                   if (cell.isOverflow) {
                     handleOverflowDateTap(cell.day, cell.month, cell.year);
@@ -381,25 +330,17 @@ export default function ApprovedDutyScreen() {
                 }}
               >
                 <View
-                  className={`w-8 h-8 rounded-full items-center justify-center ${
-                    isToday ? "bg-primary" : ""
-                  }`}
+                  className={`w-8 h-8 rounded-full items-center justify-center ${isToday ? "bg-primary" : ""}`}
                 >
                   <Text
-                    className={`text-sm ${
-                      isToday
-                        ? "text-white font-bold"
-                        : cell.isOverflow
-                        ? ""
-                        : "text-foreground"
-                    }`}
+                    className={`text-sm ${isToday ? "text-white font-bold" : cell.isOverflow ? "" : "text-foreground"}`}
                     style={cell.isOverflow ? { color: "#9CA3AF" } : undefined}
                   >
                     {cell.day}
                   </Text>
                 </View>
                 {hasApproved && (
-                  <View className="flex-row mt-1" style={{ gap: 2 }}>
+                  <View className="flex-row" style={{ marginTop: 2, gap: 2 }}>
                     {approvedForDay.slice(0, 4).map((r, dotIdx) => (
                       <View
                         key={dotIdx}
@@ -427,20 +368,14 @@ export default function ApprovedDutyScreen() {
   const renderApprovedItem = ({ item }: { item: DutyRequest }) => {
     const content = (
       <View className="flex-row items-center py-3 px-4 bg-background border-b border-border">
-        <View
-          className="w-9 h-9 rounded-full mr-3"
-          style={{ backgroundColor: "#D1D5DB" }}
-        />
+        <View className="w-9 h-9 rounded-full mr-3" style={{ backgroundColor: "#D1D5DB" }} />
         <View className="flex-1">
           <Text className="text-sm font-bold text-foreground" numberOfLines={1}>
             {item.userName}
           </Text>
           <Text className="text-xs text-muted">{item.date}</Text>
         </View>
-        <View
-          style={{ backgroundColor: getDutyColor(item.dutyType) }}
-          className="px-2 py-1 rounded"
-        >
+        <View style={{ backgroundColor: getDutyColor(item.dutyType) }} className="px-2 py-1 rounded">
           <Text className="text-white text-xs font-bold">{item.dutyType}</Text>
         </View>
       </View>
@@ -477,7 +412,7 @@ export default function ApprovedDutyScreen() {
         <Text className="text-lg font-bold text-foreground">Approved duty</Text>
         {isAdmin && (
           <Text className="text-xs text-muted mt-1">
-            ← Swipe left to cancel | Swipe right to reject →
+            Swipe left to cancel | Swipe right to reject
           </Text>
         )}
         <View className="flex-row items-center mt-1">
@@ -489,15 +424,58 @@ export default function ApprovedDutyScreen() {
             {weeklyHours}h
           </Text>
           {isOverLimit && (
-            <Text className="text-xs font-bold" style={{ color: "#EF4444" }}>
-              {" "}(≥14h)
-            </Text>
+            <Text className="text-xs font-bold" style={{ color: "#EF4444" }}> (≥14h)</Text>
           )}
         </View>
       </View>
 
-      {/* Approved List - Top (future duties only) - larger */}
-      <View className="mx-3 mt-2 border border-border rounded-xl overflow-hidden" style={{ flex: 1 }}>
+      {/* Calendar — takes 2/3 of available space */}
+      <View
+        className="mx-3 mt-2 border border-border rounded-xl p-3 bg-surface"
+        style={{ flex: 2 }}
+      >
+        {/* Month navigation header */}
+        <View className="flex-row items-center justify-between mb-2">
+          <View className="flex-row items-center">
+            <TouchableOpacity
+              onPress={prevMonth}
+              style={{ padding: 8, borderRadius: 20, backgroundColor: colors.background }}
+            >
+              <MaterialIcons name="chevron-left" size={24} color={colors.foreground} />
+            </TouchableOpacity>
+            <Text className="text-base font-bold text-foreground mx-3">
+              {String(currentMonth + 1).padStart(2, "0")}/{currentYear}
+            </Text>
+            <TouchableOpacity
+              onPress={nextMonth}
+              style={{ padding: 8, borderRadius: 20, backgroundColor: colors.background }}
+            >
+              <MaterialIcons name="chevron-right" size={24} color={colors.foreground} />
+            </TouchableOpacity>
+          </View>
+          <View className="flex-row items-center" style={{ gap: 6 }}>
+            {[
+              { color: "#EF4444", label: "A" },
+              { color: "#3B82F6", label: "P" },
+              { color: "#22C55E", label: "9-17" },
+              { color: "#86EFAC", label: "9-13" },
+            ].map(({ color, label }) => (
+              <View key={label} className="flex-row items-center">
+                <View style={{ backgroundColor: color, width: 8, height: 8, borderRadius: 4 }} />
+                <Text className="text-xs text-muted ml-1">{label}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* Calendar grid — rows use flex:1 to fill remaining space evenly */}
+        <View style={{ flex: 1 }}>
+          {renderCalendar()}
+        </View>
+      </View>
+
+      {/* Approved List — takes 1/3 of available space */}
+      <View className="mx-3 mt-2 mb-2 border border-border rounded-xl overflow-hidden" style={{ flex: 1 }}>
         {futureApproved.length === 0 ? (
           <FlatList
             data={[]}
@@ -507,68 +485,16 @@ export default function ApprovedDutyScreen() {
                 <Text className="text-muted text-sm">No upcoming approved duties</Text>
               </View>
             }
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-            }
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           />
         ) : (
           <FlatList
             data={futureApproved}
             renderItem={renderApprovedItem}
             keyExtractor={(item) => item.id || Math.random().toString()}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-            }
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           />
         )}
-      </View>
-
-      {/* Calendar - compact fixed height, just enough to show all dates */}
-      <View
-        className="mx-3 mt-2 mb-2 border border-border rounded-xl p-2 bg-surface"
-        style={{ height: 310 }}
-        {...calendarPanResponder.panHandlers}
-      >
-        <View className="flex-row items-center justify-between mb-2">
-          <View className="flex-row items-center">
-            <TouchableOpacity
-              onPress={prevMonth}
-              className="p-2 rounded-full"
-              style={{ backgroundColor: colors.background }}
-            >
-              <MaterialIcons name="chevron-left" size={24} color={colors.foreground} />
-            </TouchableOpacity>
-            <Text className="text-base font-bold text-foreground mx-3">
-              {String(currentMonth + 1).padStart(2, "0")}/{currentYear}
-            </Text>
-            <TouchableOpacity
-              onPress={nextMonth}
-              className="p-2 rounded-full"
-              style={{ backgroundColor: colors.background }}
-            >
-              <MaterialIcons name="chevron-right" size={24} color={colors.foreground} />
-            </TouchableOpacity>
-          </View>
-          <View className="flex-row items-center gap-2">
-            <View className="flex-row items-center">
-              <View style={{ backgroundColor: "#EF4444", width: 8, height: 8, borderRadius: 4 }} />
-              <Text className="text-xs text-muted ml-1">A</Text>
-            </View>
-            <View className="flex-row items-center">
-              <View style={{ backgroundColor: "#3B82F6", width: 8, height: 8, borderRadius: 4 }} />
-              <Text className="text-xs text-muted ml-1">P</Text>
-            </View>
-            <View className="flex-row items-center">
-              <View style={{ backgroundColor: "#22C55E", width: 8, height: 8, borderRadius: 4 }} />
-              <Text className="text-xs text-muted ml-1">9-17</Text>
-            </View>
-            <View className="flex-row items-center">
-              <View style={{ backgroundColor: "#86EFAC", width: 8, height: 8, borderRadius: 4 }} />
-              <Text className="text-xs text-muted ml-1">9-13</Text>
-            </View>
-          </View>
-        </View>
-        {renderCalendar()}
       </View>
 
       {/* Approved Duties Modal (on date tap) */}
@@ -581,7 +507,7 @@ export default function ApprovedDutyScreen() {
         <View className="flex-1 justify-center px-6" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
           <View className="bg-background rounded-2xl p-4 max-h-[60%]">
             <Text className="text-lg font-bold text-foreground text-center mb-3">
-              Approved Duties - {selectedDateStr}
+              Approved Duties — {selectedDateStr}
             </Text>
             <FlatList
               data={selectedDateDuties}
@@ -590,10 +516,7 @@ export default function ApprovedDutyScreen() {
                   <View className="flex-1">
                     <Text className="text-sm font-bold text-foreground">{item.userName}</Text>
                   </View>
-                  <View
-                    style={{ backgroundColor: getDutyColor(item.dutyType) }}
-                    className="px-2 py-1 rounded"
-                  >
+                  <View style={{ backgroundColor: getDutyColor(item.dutyType) }} className="px-2 py-1 rounded">
                     <Text className="text-white text-xs font-bold">{item.dutyType}</Text>
                   </View>
                 </View>

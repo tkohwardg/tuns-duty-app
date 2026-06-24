@@ -10,6 +10,7 @@ import {
   RefreshControl,
   Dimensions,
   Animated,
+  Platform,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useAuthContext } from "@/lib/auth-context";
@@ -32,7 +33,6 @@ import {
 } from "@/lib/duty-colors";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Swipeable } from "react-native-gesture-handler";
-import { Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
@@ -70,18 +70,6 @@ export default function AdminApproveScreen() {
 
   // Single item processing state
   const [processingId, setProcessingId] = useState<string | null>(null);
-
-  // Animated value for batch bar slide-in
-  const batchBarAnim = React.useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.spring(batchBarAnim, {
-      toValue: batchMode ? 1 : 0,
-      useNativeDriver: true,
-      tension: 80,
-      friction: 12,
-    }).start();
-  }, [batchMode]);
 
   const loadData = useCallback(async () => {
     try {
@@ -138,62 +126,38 @@ export default function AdminApproveScreen() {
       }, 0);
   };
 
-  // Single approve/reject
+  // Single approve — direct action, no Alert confirmation (faster UX)
   const handleApprove = async (request: DutyRequest) => {
     if (!request.id || processingId) return;
-    Alert.alert(
-      "Confirm Approve",
-      `Approve ${request.userName}'s "${request.dutyType}" on ${request.date}?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Approve",
-          onPress: async () => {
-            setProcessingId(request.id!);
-            try {
-              await updateDutyRequestStatus(request.id!, "approved");
-              await updateSheetStatus(request.id!, "approved");
-              setPendingRequests((prev) => prev.filter((r) => r.id !== request.id));
-              setApprovedRequests((prev) => [{ ...request, status: "approved" }, ...prev]);
-            } catch {
-              Alert.alert("Error", "Failed to approve request.");
-            } finally {
-              setProcessingId(null);
-            }
-          },
-        },
-      ]
-    );
+    setProcessingId(request.id);
+    try {
+      await updateDutyRequestStatus(request.id, "approved");
+      await updateSheetStatus(request.id, "approved");
+      setPendingRequests((prev) => prev.filter((r) => r.id !== request.id));
+      setApprovedRequests((prev) => [{ ...request, status: "approved" }, ...prev]);
+    } catch (error) {
+      Alert.alert("Error", "Failed to approve request.");
+    } finally {
+      setProcessingId(null);
+    }
   };
 
+  // Single reject — direct action
   const handleReject = async (request: DutyRequest) => {
     if (!request.id || processingId) return;
-    Alert.alert(
-      "Confirm Reject",
-      `Reject ${request.userName}'s "${request.dutyType}" on ${request.date}?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Reject",
-          style: "destructive",
-          onPress: async () => {
-            setProcessingId(request.id!);
-            try {
-              await updateDutyRequestStatus(request.id!, "rejected");
-              await updateSheetStatus(request.id!, "rejected");
-              setPendingRequests((prev) => prev.filter((r) => r.id !== request.id));
-            } catch {
-              Alert.alert("Error", "Failed to reject request.");
-            } finally {
-              setProcessingId(null);
-            }
-          },
-        },
-      ]
-    );
+    setProcessingId(request.id);
+    try {
+      await updateDutyRequestStatus(request.id, "rejected");
+      await updateSheetStatus(request.id, "rejected");
+      setPendingRequests((prev) => prev.filter((r) => r.id !== request.id));
+    } catch (error) {
+      Alert.alert("Error", "Failed to reject request.");
+    } finally {
+      setProcessingId(null);
+    }
   };
 
-  // Batch mode toggle
+  // Batch mode
   const enterBatchMode = () => {
     setBatchMode(true);
     setSelectedIds(new Set());
@@ -227,73 +191,56 @@ export default function AdminApproveScreen() {
     }
   };
 
-  // Batch process with per-item progress tracking
+  // Batch process — direct action without Alert confirmation for speed
   const runBatch = async (action: "approve" | "reject") => {
     if (selectedIds.size === 0 || batchProcessing) return;
     const ids = Array.from(selectedIds);
-    const actionLabel = action === "approve" ? "Approve" : "Reject";
     const actionLabelPast = action === "approve" ? "approved" : "rejected";
 
-    Alert.alert(
-      `Batch ${actionLabel}`,
-      `${actionLabel} ${ids.length} selected request(s)?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: `${actionLabel} All`,
-          style: action === "reject" ? "destructive" : "default",
-          onPress: async () => {
-            setBatchProcessing(true);
-            setBatchAction(action);
-            setBatchProgress({ done: 0, total: ids.length });
+    setBatchProcessing(true);
+    setBatchAction(action);
+    setBatchProgress({ done: 0, total: ids.length });
 
-            let successCount = 0;
-            let failCount = 0;
-            const approvedItems: DutyRequest[] = [];
+    let successCount = 0;
+    let failCount = 0;
+    const approvedItems: DutyRequest[] = [];
 
-            for (const id of ids) {
-              try {
-                await updateDutyRequestStatus(id, actionLabelPast as "approved" | "rejected");
-                await updateSheetStatus(id, actionLabelPast as "approved" | "rejected");
-                successCount++;
-                if (action === "approve") {
-                  const item = pendingRequests.find((r) => r.id === id);
-                  if (item) approvedItems.push(item);
-                }
-              } catch {
-                failCount++;
-              }
-              setBatchProgress((prev) => prev ? { done: prev.done + 1, total: prev.total } : null);
-            }
+    for (const id of ids) {
+      try {
+        await updateDutyRequestStatus(id, actionLabelPast as "approved" | "rejected");
+        await updateSheetStatus(id, actionLabelPast as "approved" | "rejected");
+        successCount++;
+        if (action === "approve") {
+          const item = pendingRequests.find((r) => r.id === id);
+          if (item) approvedItems.push(item);
+        }
+      } catch {
+        failCount++;
+      }
+      setBatchProgress((prev) => prev ? { done: prev.done + 1, total: prev.total } : null);
+    }
 
-            // Update state after all done
-            setPendingRequests((prev) => prev.filter((r) => !selectedIds.has(r.id!)));
-            if (action === "approve" && approvedItems.length > 0) {
-              setApprovedRequests((prev) => [
-                ...approvedItems.map((r) => ({ ...r, status: "approved" as const })),
-                ...prev,
-              ]);
-            }
+    // Update state
+    setPendingRequests((prev) => prev.filter((r) => !selectedIds.has(r.id!)));
+    if (action === "approve" && approvedItems.length > 0) {
+      setApprovedRequests((prev) => [
+        ...approvedItems.map((r) => ({ ...r, status: "approved" as const })),
+        ...prev,
+      ]);
+    }
 
-            setBatchProcessing(false);
-            setBatchProgress(null);
-            setBatchAction(null);
-            setSelectedIds(new Set());
-            exitBatchMode();
+    setBatchProcessing(false);
+    setBatchProgress(null);
+    setBatchAction(null);
+    setSelectedIds(new Set());
+    exitBatchMode();
 
-            if (failCount === 0) {
-              Alert.alert("Done", `${successCount} request(s) ${actionLabelPast} successfully.`);
-            } else {
-              Alert.alert(
-                "Partial Success",
-                `${successCount} succeeded, ${failCount} failed. Please refresh and retry.`
-              );
-              await loadData();
-            }
-          },
-        },
-      ]
-    );
+    if (failCount === 0) {
+      Alert.alert("Done", `${successCount} request(s) ${actionLabelPast} successfully.`);
+    } else {
+      Alert.alert("Partial Success", `${successCount} succeeded, ${failCount} failed.`);
+      await loadData();
+    }
   };
 
   // Calendar navigation
@@ -342,35 +289,33 @@ export default function AdminApproveScreen() {
   };
 
   // Swipe actions
-  const renderRightActions = (request: DutyRequest) => (
+  const renderSwipeRight = (request: DutyRequest) => (
     <TouchableOpacity
       onPress={() => handleApprove(request)}
-      style={{ backgroundColor: "#22C55E", minWidth: 80 }}
-      className="justify-center items-center px-5"
+      style={{ backgroundColor: "#22C55E", justifyContent: "center", alignItems: "center", paddingHorizontal: 20 }}
     >
       {processingId === request.id ? (
         <ActivityIndicator size="small" color="#fff" />
       ) : (
         <>
           <MaterialIcons name="check" size={24} color="#fff" />
-          <Text className="text-white text-xs font-semibold mt-1">Approve</Text>
+          <Text style={{ color: "#fff", fontSize: 12, fontWeight: "600", marginTop: 2 }}>Approve</Text>
         </>
       )}
     </TouchableOpacity>
   );
 
-  const renderLeftActions = (request: DutyRequest) => (
+  const renderSwipeLeft = (request: DutyRequest) => (
     <TouchableOpacity
       onPress={() => handleReject(request)}
-      style={{ backgroundColor: "#EF4444", minWidth: 80 }}
-      className="justify-center items-center px-5"
+      style={{ backgroundColor: "#EF4444", justifyContent: "center", alignItems: "center", paddingHorizontal: 20 }}
     >
       {processingId === request.id ? (
         <ActivityIndicator size="small" color="#fff" />
       ) : (
         <>
           <MaterialIcons name="close" size={24} color="#fff" />
-          <Text className="text-white text-xs font-semibold mt-1">Reject</Text>
+          <Text style={{ color: "#fff", fontSize: 12, fontWeight: "600", marginTop: 2 }}>Reject</Text>
         </>
       )}
     </TouchableOpacity>
@@ -380,9 +325,9 @@ export default function AdminApproveScreen() {
   const renderCalendar = () => {
     const daysInMonth = getDaysInMonth(currentYear, currentMonth);
     const firstDay = getFirstDayOfMonth(currentYear, currentMonth);
-    const today = new Date();
+    const todayDate = new Date();
     const isCurrentMonth =
-      today.getMonth() === currentMonth && today.getFullYear() === currentYear;
+      todayDate.getMonth() === currentMonth && todayDate.getFullYear() === currentYear;
 
     const prevMonthNum = currentMonth === 0 ? 11 : currentMonth - 1;
     const prevYearNum = currentMonth === 0 ? currentYear - 1 : currentYear;
@@ -395,7 +340,7 @@ export default function AdminApproveScreen() {
 
     weekDays.forEach((day, i) =>
       cells.push(
-        <View key={`header-${i}`} className="flex-1 items-center py-0.5">
+        <View key={`header-${i}`} className="flex-1 items-center" style={{ paddingVertical: 2 }}>
           <Text className="text-xs text-muted font-medium">{day}</Text>
         </View>
       )
@@ -411,7 +356,7 @@ export default function AdminApproveScreen() {
             <Text className="text-xs" style={{ color: "#9CA3AF" }}>{overflowDay}</Text>
           </View>
           {approvedForDay.length > 0 && (
-            <View className="flex-row mt-0.5 gap-0.5">
+            <View className="flex-row" style={{ marginTop: 2, gap: 1 }}>
               {approvedForDay.slice(0, 3).map((r, idx) => (
                 <View key={idx} style={{ backgroundColor: getDutyColor(r.dutyType), width: 5, height: 5, borderRadius: 2.5, opacity: 0.6 }} />
               ))}
@@ -422,7 +367,7 @@ export default function AdminApproveScreen() {
     }
 
     for (let day = 1; day <= daysInMonth; day++) {
-      const isToday = isCurrentMonth && today.getDate() === day;
+      const isToday = isCurrentMonth && todayDate.getDate() === day;
       const approvedForDay = getApprovedForDate(day);
       cells.push(
         <TouchableOpacity key={`day-${day}`} className="flex-1 items-center py-1"
@@ -431,7 +376,7 @@ export default function AdminApproveScreen() {
             <Text className={`text-xs ${isToday ? "text-white font-bold" : "text-foreground"}`}>{day}</Text>
           </View>
           {approvedForDay.length > 0 && (
-            <View className="flex-row mt-0.5 gap-0.5">
+            <View className="flex-row" style={{ marginTop: 2, gap: 1 }}>
               {approvedForDay.slice(0, 3).map((r, idx) => (
                 <View key={idx} style={{ backgroundColor: getDutyColor(r.dutyType), width: 5, height: 5, borderRadius: 2.5 }} />
               ))}
@@ -442,9 +387,9 @@ export default function AdminApproveScreen() {
     }
 
     const totalCellsSoFar = cells.length - 7;
-    const remainder = totalCellsSoFar % 7;
-    if (remainder > 0) {
-      const trailingCount = 7 - remainder;
+    const rem = totalCellsSoFar % 7;
+    if (rem > 0) {
+      const trailingCount = 7 - rem;
       for (let i = 1; i <= trailingCount; i++) {
         const approvedForDay = getApprovedForAnyDate(i, nextMonthNum, nextYearNum);
         cells.push(
@@ -454,7 +399,7 @@ export default function AdminApproveScreen() {
               <Text className="text-xs" style={{ color: "#9CA3AF" }}>{i}</Text>
             </View>
             {approvedForDay.length > 0 && (
-              <View className="flex-row mt-0.5 gap-0.5">
+              <View className="flex-row" style={{ marginTop: 2, gap: 1 }}>
                 {approvedForDay.slice(0, 3).map((r, idx) => (
                   <View key={idx} style={{ backgroundColor: getDutyColor(r.dutyType), width: 5, height: 5, borderRadius: 2.5, opacity: 0.6 }} />
                 ))}
@@ -484,86 +429,73 @@ export default function AdminApproveScreen() {
             paddingVertical: 14,
             paddingHorizontal: 16,
             backgroundColor: isSelected ? "#F0FDF4" : undefined,
+            flexDirection: "row",
+            alignItems: "center",
+            borderBottomWidth: 1,
+            borderBottomColor: "#E5E7EB",
           }}
-          className="flex-row items-center border-b border-border"
         >
-          {/* Checkbox */}
           <View
             style={{
-              width: 24,
-              height: 24,
-              borderRadius: 6,
-              borderWidth: 2,
+              width: 24, height: 24, borderRadius: 6, borderWidth: 2,
               borderColor: isSelected ? "#22C55E" : "#D1D5DB",
               backgroundColor: isSelected ? "#22C55E" : "transparent",
-              alignItems: "center",
-              justifyContent: "center",
-              marginRight: 12,
+              alignItems: "center", justifyContent: "center", marginRight: 12,
             }}
           >
             {isSelected && <MaterialIcons name="check" size={15} color="#fff" />}
           </View>
-
-          {/* Avatar */}
-          <View className="w-9 h-9 rounded-full mr-3" style={{ backgroundColor: "#D1D5DB" }} />
-
-          {/* Info */}
-          <View className="flex-1">
-            <Text className="text-sm font-bold text-foreground" numberOfLines={1}>
-              {item.userName}
-            </Text>
-            <Text className="text-xs text-muted mt-0.5">{item.date}</Text>
+          <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "#D1D5DB", marginRight: 12 }} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 14, fontWeight: "700" }} numberOfLines={1}>{item.userName}</Text>
+            <Text style={{ fontSize: 12, color: "#687076", marginTop: 2 }}>{item.date}</Text>
           </View>
-
-          {/* Duty badge */}
-          <View
-            style={{ backgroundColor: getDutyColor(item.dutyType) }}
-            className="px-3 py-1.5 rounded-lg"
-          >
-            <Text className="text-white text-xs font-bold">{item.dutyType}</Text>
+          <View style={{ backgroundColor: getDutyColor(item.dutyType), paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
+            <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>{item.dutyType}</Text>
           </View>
         </TouchableOpacity>
       );
     }
 
-    // Normal mode: inline ✓/✗ buttons + swipe on native
+    // Normal mode: inline buttons + swipe on native
     const itemContent = (
       <View
-        style={{ paddingVertical: 12, paddingHorizontal: 16 }}
-        className="flex-row items-center bg-background border-b border-border"
+        style={{
+          paddingVertical: 12,
+          paddingHorizontal: 16,
+          flexDirection: "row",
+          alignItems: "center",
+          borderBottomWidth: 1,
+          borderBottomColor: "#E5E7EB",
+        }}
       >
         <TouchableOpacity
           onPress={() => handleStaffTap(item)}
-          className="flex-1 flex-row items-center"
+          style={{ flex: 1, flexDirection: "row", alignItems: "center" }}
           activeOpacity={0.7}
         >
-          <View className="w-9 h-9 rounded-full mr-3" style={{ backgroundColor: "#D1D5DB" }} />
-          <View className="flex-1 mr-2">
-            <Text className="text-sm font-bold text-foreground" numberOfLines={1}>
-              {item.userName}
-            </Text>
-            <Text className="text-xs text-muted mt-0.5">{item.date}</Text>
+          <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "#D1D5DB", marginRight: 12 }} />
+          <View style={{ flex: 1, marginRight: 8 }}>
+            <Text style={{ fontSize: 14, fontWeight: "700" }} numberOfLines={1}>{item.userName}</Text>
+            <Text style={{ fontSize: 12, color: "#687076", marginTop: 2 }}>{item.date}</Text>
           </View>
-          <View
-            style={{ backgroundColor: getDutyColor(item.dutyType) }}
-            className="px-3 py-1.5 rounded-lg mr-3"
-          >
-            <Text className="text-white text-xs font-bold">{item.dutyType}</Text>
+          <View style={{ backgroundColor: getDutyColor(item.dutyType), paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginRight: 12 }}>
+            <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>{item.dutyType}</Text>
           </View>
         </TouchableOpacity>
         {processingId === item.id ? (
           <ActivityIndicator size="small" color="#4CAF50" style={{ marginHorizontal: 8 }} />
         ) : (
-          <View className="flex-row" style={{ gap: 8 }}>
+          <View style={{ flexDirection: "row", gap: 10 }}>
             <TouchableOpacity
               onPress={() => handleApprove(item)}
-              style={{ backgroundColor: "#22C55E", borderRadius: 8, padding: 8 }}
+              style={{ backgroundColor: "#22C55E", borderRadius: 8, padding: 10 }}
             >
               <MaterialIcons name="check" size={20} color="#fff" />
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => handleReject(item)}
-              style={{ backgroundColor: "#EF4444", borderRadius: 8, padding: 8 }}
+              style={{ backgroundColor: "#EF4444", borderRadius: 8, padding: 10 }}
             >
               <MaterialIcons name="close" size={20} color="#fff" />
             </TouchableOpacity>
@@ -575,8 +507,8 @@ export default function AdminApproveScreen() {
     if (Platform.OS !== "web") {
       return (
         <Swipeable
-          renderRightActions={() => renderRightActions(item)}
-          renderLeftActions={() => renderLeftActions(item)}
+          renderRightActions={() => renderSwipeRight(item)}
+          renderLeftActions={() => renderSwipeLeft(item)}
           overshootRight={false}
           overshootLeft={false}
         >
@@ -614,21 +546,18 @@ export default function AdminApproveScreen() {
         <Text className="text-lg font-bold text-foreground">Requests pending approval</Text>
       </View>
 
-      {/* Selected Staff Info (normal mode only) */}
+      {/* Selected Staff Info */}
       {!batchMode && (
-        <View className="flex-row mx-4 mt-2 mb-1">
-          <View className="flex-1">
-            <Text className="text-xs text-muted">Selected Staff Name:</Text>
-            <Text className="text-xs text-muted">Total working hours this week (Sun-Sat):</Text>
+        <View style={{ flexDirection: "row", marginHorizontal: 16, marginTop: 8, marginBottom: 4 }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 12, color: "#687076" }}>Selected Staff Name:</Text>
+            <Text style={{ fontSize: 12, color: "#687076" }}>Weekly hours (Sun-Sat):</Text>
           </View>
-          <View className="items-end">
-            <Text className="text-sm font-bold text-foreground">
+          <View style={{ alignItems: "flex-end" }}>
+            <Text style={{ fontSize: 14, fontWeight: "700" }}>
               {selectedStaff ? selectedStaff.name : "—"}
             </Text>
-            <Text
-              className="text-sm font-bold"
-              style={{ color: selectedStaff && weeklyHours >= 14 ? "#EF4444" : undefined }}
-            >
+            <Text style={{ fontSize: 14, fontWeight: "700", color: selectedStaff && weeklyHours >= 14 ? "#EF4444" : undefined }}>
               {selectedStaff ? `${weeklyHours} hrs` : "—"}
               {selectedStaff && weeklyHours >= 14 ? " (≥14h)" : ""}
             </Text>
@@ -641,28 +570,28 @@ export default function AdminApproveScreen() {
         className="mx-3 border border-border rounded-xl p-3 bg-surface"
         style={{ height: CALENDAR_HEIGHT }}
       >
-        <View className="flex-row items-center justify-between mb-2">
-          <View className="flex-row items-center">
-            <TouchableOpacity onPress={prevMonth} className="p-2 rounded-full" style={{ backgroundColor: "#f5f5f5" }}>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <TouchableOpacity onPress={prevMonth} style={{ padding: 8, borderRadius: 20, backgroundColor: "#f5f5f5" }}>
               <MaterialIcons name="chevron-left" size={24} color="#11181C" />
             </TouchableOpacity>
-            <Text className="text-base font-bold text-foreground mx-3">
+            <Text style={{ fontSize: 16, fontWeight: "700", marginHorizontal: 12 }}>
               {String(currentMonth + 1).padStart(2, "0")}/{currentYear}
             </Text>
-            <TouchableOpacity onPress={nextMonth} className="p-2 rounded-full" style={{ backgroundColor: "#f5f5f5" }}>
+            <TouchableOpacity onPress={nextMonth} style={{ padding: 8, borderRadius: 20, backgroundColor: "#f5f5f5" }}>
               <MaterialIcons name="chevron-right" size={24} color="#11181C" />
             </TouchableOpacity>
           </View>
-          <View className="flex-row items-center gap-2">
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             {[
               { color: "#EF4444", label: "A" },
               { color: "#3B82F6", label: "P" },
               { color: "#22C55E", label: "9-17" },
               { color: "#86EFAC", label: "9-13" },
             ].map(({ color, label }) => (
-              <View key={label} className="flex-row items-center">
+              <View key={label} style={{ flexDirection: "row", alignItems: "center" }}>
                 <View style={{ backgroundColor: color, width: 8, height: 8, borderRadius: 4 }} />
-                <Text className="text-xs text-muted ml-1">{label}</Text>
+                <Text style={{ fontSize: 10, color: "#687076", marginLeft: 3 }}>{label}</Text>
               </View>
             ))}
           </View>
@@ -674,75 +603,47 @@ export default function AdminApproveScreen() {
       <View className="flex-1 mx-3 mt-2 border border-border rounded-xl overflow-hidden"
         style={{ marginBottom: batchMode ? 0 : 8 }}>
         {/* List header */}
-        <View className="bg-surface px-4 py-2.5 border-b border-border flex-row items-center justify-between">
-          <View className="flex-1">
-            <Text className="text-sm font-bold text-foreground">
-              Pending Requests ({pendingRequests.length})
+        <View style={{ backgroundColor: "#f5f5f5", paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#E5E7EB", flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 14, fontWeight: "700" }}>
+              Pending ({pendingRequests.length})
             </Text>
-            {!batchMode && Platform.OS !== "web" && (
-              <Text className="text-xs text-muted mt-0.5">Tap ✓/✗ or swipe to approve/reject</Text>
-            )}
             {batchMode && (
-              <Text className="text-xs text-muted mt-0.5">
-                {selectedIds.size === 0
-                  ? "Tap items to select"
-                  : `${selectedIds.size} of ${pendingRequests.length} selected`}
+              <Text style={{ fontSize: 12, color: "#687076", marginTop: 2 }}>
+                {selectedIds.size === 0 ? "Tap items to select" : `${selectedIds.size} of ${pendingRequests.length} selected`}
               </Text>
             )}
           </View>
 
-          {/* Batch mode toggle button */}
           {!batchMode && pendingRequests.length > 0 && (
             <TouchableOpacity
               onPress={enterBatchMode}
               style={{ backgroundColor: "#3B82F6", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 }}
             >
-              <Text className="text-white text-xs font-bold">Batch</Text>
+              <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>Batch</Text>
             </TouchableOpacity>
           )}
           {batchMode && (
-            <View className="flex-row items-center" style={{ gap: 8 }}>
-              {/* Select All toggle */}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
               <TouchableOpacity
                 onPress={toggleSelectAll}
                 style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  borderRadius: 8,
-                  paddingHorizontal: 10,
-                  paddingVertical: 6,
-                  borderWidth: 1.5,
-                  borderColor: isAllSelected ? "#22C55E" : "#D1D5DB",
-                  backgroundColor: isAllSelected ? "#F0FDF4" : "transparent",
-                  gap: 4,
+                  flexDirection: "row", alignItems: "center", borderRadius: 8,
+                  paddingHorizontal: 10, paddingVertical: 6,
+                  borderWidth: 1.5, borderColor: isAllSelected ? "#22C55E" : "#D1D5DB",
+                  backgroundColor: isAllSelected ? "#F0FDF4" : "transparent", gap: 4,
                 }}
               >
-                <View
-                  style={{
-                    width: 16,
-                    height: 16,
-                    borderRadius: 4,
-                    borderWidth: 1.5,
-                    borderColor: isAllSelected ? "#22C55E" : "#9CA3AF",
-                    backgroundColor: isAllSelected ? "#22C55E" : "transparent",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
+                <View style={{
+                  width: 16, height: 16, borderRadius: 4, borderWidth: 1.5,
+                  borderColor: isAllSelected ? "#22C55E" : "#9CA3AF",
+                  backgroundColor: isAllSelected ? "#22C55E" : "transparent",
+                  alignItems: "center", justifyContent: "center",
+                }}>
                   {isAllSelected && <MaterialIcons name="check" size={11} color="#fff" />}
                 </View>
-                <Text
-                  style={{
-                    fontSize: 12,
-                    fontWeight: "600",
-                    color: isAllSelected ? "#22C55E" : "#687076",
-                  }}
-                >
-                  All
-                </Text>
+                <Text style={{ fontSize: 12, fontWeight: "600", color: isAllSelected ? "#22C55E" : "#687076" }}>All</Text>
               </TouchableOpacity>
-
-              {/* Cancel batch */}
               <TouchableOpacity
                 onPress={exitBatchMode}
                 style={{ backgroundColor: "#F3F4F6", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 }}
@@ -759,9 +660,9 @@ export default function AdminApproveScreen() {
             data={[]}
             renderItem={() => null}
             ListEmptyComponent={
-              <View className="items-center justify-center py-8">
+              <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 32 }}>
                 <MaterialIcons name="check-circle" size={40} color="#D1D5DB" />
-                <Text className="text-muted text-sm mt-2">No pending requests</Text>
+                <Text style={{ color: "#687076", fontSize: 14, marginTop: 8 }}>No pending requests</Text>
               </View>
             }
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
@@ -776,18 +677,10 @@ export default function AdminApproveScreen() {
         )}
       </View>
 
-      {/* ── Sticky Batch Action Bar ── */}
+      {/* Sticky Batch Action Bar */}
       {batchMode && (
-        <Animated.View
+        <View
           style={{
-            transform: [
-              {
-                translateY: batchBarAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [120, 0],
-                }),
-              },
-            ],
             paddingBottom: bottomPad,
             backgroundColor: "#fff",
             borderTopWidth: 1,
@@ -799,58 +692,35 @@ export default function AdminApproveScreen() {
             elevation: 8,
           }}
         >
-          {/* Progress bar (shown during processing) */}
+          {/* Progress bar */}
           {batchProcessing && batchProgress && (
             <View style={{ paddingHorizontal: 16, paddingTop: 10 }}>
-              <View className="flex-row items-center justify-between mb-1">
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
                 <Text style={{ fontSize: 12, color: "#687076" }}>
-                  {batchAction === "approve" ? "Approving" : "Rejecting"}…{" "}
-                  {batchProgress.done}/{batchProgress.total}
+                  {batchAction === "approve" ? "Approving" : "Rejecting"}… {batchProgress.done}/{batchProgress.total}
                 </Text>
                 <Text style={{ fontSize: 12, color: "#687076" }}>
                   {Math.round((batchProgress.done / batchProgress.total) * 100)}%
                 </Text>
               </View>
-              <View
-                style={{
-                  height: 4,
-                  backgroundColor: "#E5E7EB",
-                  borderRadius: 2,
-                  overflow: "hidden",
-                }}
-              >
-                <View
-                  style={{
-                    height: 4,
-                    borderRadius: 2,
-                    backgroundColor: batchAction === "approve" ? "#22C55E" : "#EF4444",
-                    width: `${(batchProgress.done / batchProgress.total) * 100}%`,
-                  }}
-                />
+              <View style={{ height: 4, backgroundColor: "#E5E7EB", borderRadius: 2, overflow: "hidden" }}>
+                <View style={{
+                  height: 4, borderRadius: 2,
+                  backgroundColor: batchAction === "approve" ? "#22C55E" : "#EF4444",
+                  width: `${(batchProgress.done / batchProgress.total) * 100}%`,
+                }} />
               </View>
             </View>
           )}
 
           {/* Action buttons */}
-          <View
-            style={{
-              flexDirection: "row",
-              paddingHorizontal: 16,
-              paddingTop: 12,
-              gap: 12,
-            }}
-          >
-            {/* Reject button */}
+          <View style={{ flexDirection: "row", paddingHorizontal: 16, paddingTop: 12, gap: 12 }}>
             <TouchableOpacity
               onPress={() => runBatch("reject")}
               disabled={selectedIds.size === 0 || batchProcessing}
               style={{
-                flex: 1,
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: 12,
-                paddingVertical: 14,
+                flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
+                borderRadius: 12, paddingVertical: 14,
                 backgroundColor: selectedIds.size > 0 && !batchProcessing ? "#EF4444" : "#F3F4F6",
                 gap: 6,
               }}
@@ -859,35 +729,19 @@ export default function AdminApproveScreen() {
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
                 <>
-                  <MaterialIcons
-                    name="close"
-                    size={18}
-                    color={selectedIds.size > 0 && !batchProcessing ? "#fff" : "#9CA3AF"}
-                  />
-                  <Text
-                    style={{
-                      fontSize: 15,
-                      fontWeight: "700",
-                      color: selectedIds.size > 0 && !batchProcessing ? "#fff" : "#9CA3AF",
-                    }}
-                  >
+                  <MaterialIcons name="close" size={18} color={selectedIds.size > 0 && !batchProcessing ? "#fff" : "#9CA3AF"} />
+                  <Text style={{ fontSize: 15, fontWeight: "700", color: selectedIds.size > 0 && !batchProcessing ? "#fff" : "#9CA3AF" }}>
                     Reject {selectedIds.size > 0 ? `(${selectedIds.size})` : ""}
                   </Text>
                 </>
               )}
             </TouchableOpacity>
-
-            {/* Approve button */}
             <TouchableOpacity
               onPress={() => runBatch("approve")}
               disabled={selectedIds.size === 0 || batchProcessing}
               style={{
-                flex: 1,
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: 12,
-                paddingVertical: 14,
+                flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
+                borderRadius: 12, paddingVertical: 14,
                 backgroundColor: selectedIds.size > 0 && !batchProcessing ? "#22C55E" : "#F3F4F6",
                 gap: 6,
               }}
@@ -896,34 +750,19 @@ export default function AdminApproveScreen() {
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
                 <>
-                  <MaterialIcons
-                    name="check"
-                    size={18}
-                    color={selectedIds.size > 0 && !batchProcessing ? "#fff" : "#9CA3AF"}
-                  />
-                  <Text
-                    style={{
-                      fontSize: 15,
-                      fontWeight: "700",
-                      color: selectedIds.size > 0 && !batchProcessing ? "#fff" : "#9CA3AF",
-                    }}
-                  >
+                  <MaterialIcons name="check" size={18} color={selectedIds.size > 0 && !batchProcessing ? "#fff" : "#9CA3AF"} />
+                  <Text style={{ fontSize: 15, fontWeight: "700", color: selectedIds.size > 0 && !batchProcessing ? "#fff" : "#9CA3AF" }}>
                     Approve {selectedIds.size > 0 ? `(${selectedIds.size})` : ""}
                   </Text>
                 </>
               )}
             </TouchableOpacity>
           </View>
-        </Animated.View>
+        </View>
       )}
 
       {/* Approved Duties Modal */}
-      <Modal
-        visible={showDutyModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowDutyModal(false)}
-      >
+      <Modal visible={showDutyModal} transparent animationType="fade" onRequestClose={() => setShowDutyModal(false)}>
         <View className="flex-1 justify-center px-6" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
           <View className="bg-background rounded-2xl p-4 max-h-[60%]">
             <Text className="text-lg font-bold text-foreground text-center mb-3">

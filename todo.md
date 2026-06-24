@@ -65,3 +65,8 @@
 - [x] Fix: Request page calendar swipe not working (PanResponder in Modal conflict)
 - [x] Fix: Approved page calendar swipe stuck between May/July (stale closure in PanResponder)
 - [x] Fix: Calendar too small - enlarge and show all duty dots properly
+- [x] Fix: Request page error messages only show on Submit button click (not on individual field change)
+- [x] Fix: Admin approve/reject buttons not responding - removed Alert.alert confirmation, direct action with loading state
+- [x] Fix: Approved page swipe not responding - removed PanResponder from calendar (was intercepting gestures), use button-only month navigation
+- [x] Fix: Approved page calendar size should be 2/3 of screen with flex:2 layout, all dates displayed properly
+- [x] Fix: Admin batch approve/reject buttons not responding - direct action without Alert confirmation
