@@ -9,6 +9,7 @@ import {
   Modal,
   RefreshControl,
   Dimensions,
+  Animated,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useAuthContext } from "@/lib/auth-context";
@@ -32,6 +33,7 @@ import {
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Swipeable } from "react-native-gesture-handler";
 import { Platform } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 const CALENDAR_HEIGHT = SCREEN_HEIGHT / 3;
@@ -47,6 +49,7 @@ function parseDateStr(dateStr: string): Date {
 export default function AdminApproveScreen() {
   const { isAdmin } = useAuthContext();
   const { settings } = useSettings();
+  const insets = useSafeAreaInsets();
   const [pendingRequests, setPendingRequests] = useState<DutyRequest[]>([]);
   const [approvedRequests, setApprovedRequests] = useState<DutyRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -62,8 +65,23 @@ export default function AdminApproveScreen() {
   const [batchMode, setBatchMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchProcessing, setBatchProcessing] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<{ done: number; total: number } | null>(null);
+  const [batchAction, setBatchAction] = useState<"approve" | "reject" | null>(null);
+
   // Single item processing state
   const [processingId, setProcessingId] = useState<string | null>(null);
+
+  // Animated value for batch bar slide-in
+  const batchBarAnim = React.useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.spring(batchBarAnim, {
+      toValue: batchMode ? 1 : 0,
+      useNativeDriver: true,
+      tension: 80,
+      friction: 12,
+    }).start();
+  }, [batchMode]);
 
   const loadData = useCallback(async () => {
     try {
@@ -125,7 +143,7 @@ export default function AdminApproveScreen() {
     if (!request.id || processingId) return;
     Alert.alert(
       "Confirm Approve",
-      `Approve ${request.userName}'s "${request.dutyType}" request on ${request.date}?`,
+      `Approve ${request.userName}'s "${request.dutyType}" on ${request.date}?`,
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -137,7 +155,7 @@ export default function AdminApproveScreen() {
               await updateSheetStatus(request.id!, "approved");
               setPendingRequests((prev) => prev.filter((r) => r.id !== request.id));
               setApprovedRequests((prev) => [{ ...request, status: "approved" }, ...prev]);
-            } catch (error) {
+            } catch {
               Alert.alert("Error", "Failed to approve request.");
             } finally {
               setProcessingId(null);
@@ -152,7 +170,7 @@ export default function AdminApproveScreen() {
     if (!request.id || processingId) return;
     Alert.alert(
       "Confirm Reject",
-      `Reject ${request.userName}'s "${request.dutyType}" request on ${request.date}?`,
+      `Reject ${request.userName}'s "${request.dutyType}" on ${request.date}?`,
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -164,7 +182,7 @@ export default function AdminApproveScreen() {
               await updateDutyRequestStatus(request.id!, "rejected");
               await updateSheetStatus(request.id!, "rejected");
               setPendingRequests((prev) => prev.filter((r) => r.id !== request.id));
-            } catch (error) {
+            } catch {
               Alert.alert("Error", "Failed to reject request.");
             } finally {
               setProcessingId(null);
@@ -175,60 +193,102 @@ export default function AdminApproveScreen() {
     );
   };
 
-  // Batch operations
-  const toggleBatchMode = () => {
-    setBatchMode(!batchMode);
+  // Batch mode toggle
+  const enterBatchMode = () => {
+    setBatchMode(true);
     setSelectedIds(new Set());
+    setBatchProgress(null);
+    setBatchAction(null);
+  };
+
+  const exitBatchMode = () => {
+    setBatchMode(false);
+    setSelectedIds(new Set());
+    setBatchProgress(null);
+    setBatchAction(null);
   };
 
   const toggleSelect = (id: string) => {
-    const newSet = new Set(selectedIds);
-    if (newSet.has(id)) {
-      newSet.delete(id);
-    } else {
-      newSet.add(id);
-    }
-    setSelectedIds(newSet);
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
 
-  const selectAll = () => {
-    if (selectedIds.size === pendingRequests.length) {
+  const isAllSelected = selectedIds.size === pendingRequests.length && pendingRequests.length > 0;
+
+  const toggleSelectAll = () => {
+    if (isAllSelected) {
       setSelectedIds(new Set());
     } else {
       setSelectedIds(new Set(pendingRequests.map((r) => r.id!).filter(Boolean)));
     }
   };
 
-  const handleBatchApprove = () => {
-    if (selectedIds.size === 0) return;
+  // Batch process with per-item progress tracking
+  const runBatch = async (action: "approve" | "reject") => {
+    if (selectedIds.size === 0 || batchProcessing) return;
+    const ids = Array.from(selectedIds);
+    const actionLabel = action === "approve" ? "Approve" : "Reject";
+    const actionLabelPast = action === "approve" ? "approved" : "rejected";
+
     Alert.alert(
-      "Batch Approve",
-      `Approve ${selectedIds.size} selected request(s)?`,
+      `Batch ${actionLabel}`,
+      `${actionLabel} ${ids.length} selected request(s)?`,
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: "Approve All",
+          text: `${actionLabel} All`,
+          style: action === "reject" ? "destructive" : "default",
           onPress: async () => {
             setBatchProcessing(true);
-            try {
-              const promises = Array.from(selectedIds).map(async (id) => {
-                await updateDutyRequestStatus(id, "approved");
-                await updateSheetStatus(id, "approved");
-              });
-              await Promise.all(promises);
-              const approvedItems = pendingRequests.filter((r) => selectedIds.has(r.id!));
-              setPendingRequests((prev) => prev.filter((r) => !selectedIds.has(r.id!)));
+            setBatchAction(action);
+            setBatchProgress({ done: 0, total: ids.length });
+
+            let successCount = 0;
+            let failCount = 0;
+            const approvedItems: DutyRequest[] = [];
+
+            for (const id of ids) {
+              try {
+                await updateDutyRequestStatus(id, actionLabelPast as "approved" | "rejected");
+                await updateSheetStatus(id, actionLabelPast as "approved" | "rejected");
+                successCount++;
+                if (action === "approve") {
+                  const item = pendingRequests.find((r) => r.id === id);
+                  if (item) approvedItems.push(item);
+                }
+              } catch {
+                failCount++;
+              }
+              setBatchProgress((prev) => prev ? { done: prev.done + 1, total: prev.total } : null);
+            }
+
+            // Update state after all done
+            setPendingRequests((prev) => prev.filter((r) => !selectedIds.has(r.id!)));
+            if (action === "approve" && approvedItems.length > 0) {
               setApprovedRequests((prev) => [
                 ...approvedItems.map((r) => ({ ...r, status: "approved" as const })),
                 ...prev,
               ]);
-              setSelectedIds(new Set());
-              Alert.alert("Success", `${approvedItems.length} request(s) approved.`);
-            } catch (error) {
-              Alert.alert("Error", "Some requests failed to approve.");
+            }
+
+            setBatchProcessing(false);
+            setBatchProgress(null);
+            setBatchAction(null);
+            setSelectedIds(new Set());
+            exitBatchMode();
+
+            if (failCount === 0) {
+              Alert.alert("Done", `${successCount} request(s) ${actionLabelPast} successfully.`);
+            } else {
+              Alert.alert(
+                "Partial Success",
+                `${successCount} succeeded, ${failCount} failed. Please refresh and retry.`
+              );
               await loadData();
-            } finally {
-              setBatchProcessing(false);
             }
           },
         },
@@ -236,70 +296,28 @@ export default function AdminApproveScreen() {
     );
   };
 
-  const handleBatchReject = () => {
-    if (selectedIds.size === 0) return;
-    Alert.alert(
-      "Batch Reject",
-      `Reject ${selectedIds.size} selected request(s)?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Reject All",
-          style: "destructive",
-          onPress: async () => {
-            setBatchProcessing(true);
-            try {
-              const promises = Array.from(selectedIds).map(async (id) => {
-                await updateDutyRequestStatus(id, "rejected");
-                await updateSheetStatus(id, "rejected");
-              });
-              await Promise.all(promises);
-              setPendingRequests((prev) => prev.filter((r) => !selectedIds.has(r.id!)));
-              const count = selectedIds.size;
-              setSelectedIds(new Set());
-              Alert.alert("Success", `${count} request(s) rejected.`);
-            } catch (error) {
-              Alert.alert("Error", "Some requests failed to reject.");
-              await loadData();
-            } finally {
-              setBatchProcessing(false);
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  // Calendar navigation - using functional setState to avoid stale closure
+  // Calendar navigation
   const prevMonth = useCallback(() => {
     setCurrentMonth((m) => {
-      if (m === 0) {
-        setCurrentYear((y) => y - 1);
-        return 11;
-      }
+      if (m === 0) { setCurrentYear((y) => y - 1); return 11; }
       return m - 1;
     });
   }, []);
 
   const nextMonth = useCallback(() => {
     setCurrentMonth((m) => {
-      if (m === 11) {
-        setCurrentYear((y) => y + 1);
-        return 0;
-      }
+      if (m === 11) { setCurrentYear((y) => y + 1); return 0; }
       return m + 1;
     });
   }, []);
 
-  // Get approved duties for any date (supports overflow months)
   const getApprovedForAnyDate = (day: number, month: number, year: number): DutyRequest[] => {
     const dateStr = formatDateStr(day, month, year);
     return approvedRequests.filter((r) => r.date === dateStr);
   };
 
-  const getApprovedForDate = (day: number): DutyRequest[] => {
-    return getApprovedForAnyDate(day, currentMonth, currentYear);
-  };
+  const getApprovedForDate = (day: number): DutyRequest[] =>
+    getApprovedForAnyDate(day, currentMonth, currentYear);
 
   const handleDateTap = (day: number) => {
     const duties = getApprovedForDate(day);
@@ -323,7 +341,7 @@ export default function AdminApproveScreen() {
     setSelectedStaff({ name: request.userName, userId: request.userId, dutyDate: request.date });
   };
 
-  // Swipe actions — right swipe reveals left panel (reject), left swipe reveals right panel (approve)
+  // Swipe actions
   const renderRightActions = (request: DutyRequest) => (
     <TouchableOpacity
       onPress={() => handleApprove(request)}
@@ -358,7 +376,7 @@ export default function AdminApproveScreen() {
     </TouchableOpacity>
   );
 
-  // Calendar render with overflow days
+  // Calendar render
   const renderCalendar = () => {
     const daysInMonth = getDaysInMonth(currentYear, currentMonth);
     const firstDay = getFirstDayOfMonth(currentYear, currentMonth);
@@ -366,19 +384,15 @@ export default function AdminApproveScreen() {
     const isCurrentMonth =
       today.getMonth() === currentMonth && today.getFullYear() === currentYear;
 
-    // Previous month info for leading overflow
     const prevMonthNum = currentMonth === 0 ? 11 : currentMonth - 1;
     const prevYearNum = currentMonth === 0 ? currentYear - 1 : currentYear;
     const daysInPrevMonth = getDaysInMonth(prevYearNum, prevMonthNum);
-
-    // Next month info for trailing overflow
     const nextMonthNum = currentMonth === 11 ? 0 : currentMonth + 1;
     const nextYearNum = currentMonth === 11 ? currentYear + 1 : currentYear;
 
     const weekDays = ["日", "一", "二", "三", "四", "五", "六"];
     const cells: React.ReactNode[] = [];
 
-    // Header row
     weekDays.forEach((day, i) =>
       cells.push(
         <View key={`header-${i}`} className="flex-1 items-center py-0.5">
@@ -387,28 +401,19 @@ export default function AdminApproveScreen() {
       )
     );
 
-    // Leading overflow days (previous month)
     for (let i = 0; i < firstDay; i++) {
       const overflowDay = daysInPrevMonth - firstDay + 1 + i;
       const approvedForDay = getApprovedForAnyDate(overflowDay, prevMonthNum, prevYearNum);
-      const hasApproved = approvedForDay.length > 0;
-
       cells.push(
-        <TouchableOpacity
-          key={`prev-${i}`}
-          className="flex-1 items-center py-1"
-          onPress={() => handleOverflowDateTap(overflowDay, prevMonthNum, prevYearNum)}
-        >
+        <TouchableOpacity key={`prev-${i}`} className="flex-1 items-center py-1"
+          onPress={() => handleOverflowDateTap(overflowDay, prevMonthNum, prevYearNum)}>
           <View className="w-7 h-7 rounded-full items-center justify-center">
             <Text className="text-xs" style={{ color: "#9CA3AF" }}>{overflowDay}</Text>
           </View>
-          {hasApproved && (
+          {approvedForDay.length > 0 && (
             <View className="flex-row mt-0.5 gap-0.5">
               {approvedForDay.slice(0, 3).map((r, idx) => (
-                <View
-                  key={idx}
-                  style={{ backgroundColor: getDutyColor(r.dutyType), width: 5, height: 5, borderRadius: 2.5, opacity: 0.6 }}
-                />
+                <View key={idx} style={{ backgroundColor: getDutyColor(r.dutyType), width: 5, height: 5, borderRadius: 2.5, opacity: 0.6 }} />
               ))}
             </View>
           )}
@@ -416,38 +421,19 @@ export default function AdminApproveScreen() {
       );
     }
 
-    // Current month days
     for (let day = 1; day <= daysInMonth; day++) {
       const isToday = isCurrentMonth && today.getDate() === day;
       const approvedForDay = getApprovedForDate(day);
-      const hasApproved = approvedForDay.length > 0;
-
       cells.push(
-        <TouchableOpacity
-          key={`day-${day}`}
-          className="flex-1 items-center py-1"
-          onPress={() => handleDateTap(day)}
-        >
-          <View
-            className={`w-7 h-7 rounded-full items-center justify-center ${
-              isToday ? "bg-primary" : ""
-            }`}
-          >
-            <Text
-              className={`text-xs ${
-                isToday ? "text-white font-bold" : "text-foreground"
-              }`}
-            >
-              {day}
-            </Text>
+        <TouchableOpacity key={`day-${day}`} className="flex-1 items-center py-1"
+          onPress={() => handleDateTap(day)}>
+          <View className={`w-7 h-7 rounded-full items-center justify-center ${isToday ? "bg-primary" : ""}`}>
+            <Text className={`text-xs ${isToday ? "text-white font-bold" : "text-foreground"}`}>{day}</Text>
           </View>
-          {hasApproved && (
+          {approvedForDay.length > 0 && (
             <View className="flex-row mt-0.5 gap-0.5">
               {approvedForDay.slice(0, 3).map((r, idx) => (
-                <View
-                  key={idx}
-                  style={{ backgroundColor: getDutyColor(r.dutyType), width: 5, height: 5, borderRadius: 2.5 }}
-                />
+                <View key={idx} style={{ backgroundColor: getDutyColor(r.dutyType), width: 5, height: 5, borderRadius: 2.5 }} />
               ))}
             </View>
           )}
@@ -455,31 +441,22 @@ export default function AdminApproveScreen() {
       );
     }
 
-    // Trailing overflow days (next month) - fill remaining cells to complete the last row
-    const totalCellsSoFar = cells.length - 7; // subtract header row
+    const totalCellsSoFar = cells.length - 7;
     const remainder = totalCellsSoFar % 7;
     if (remainder > 0) {
       const trailingCount = 7 - remainder;
       for (let i = 1; i <= trailingCount; i++) {
         const approvedForDay = getApprovedForAnyDate(i, nextMonthNum, nextYearNum);
-        const hasApproved = approvedForDay.length > 0;
-
         cells.push(
-          <TouchableOpacity
-            key={`next-${i}`}
-            className="flex-1 items-center py-1"
-            onPress={() => handleOverflowDateTap(i, nextMonthNum, nextYearNum)}
-          >
+          <TouchableOpacity key={`next-${i}`} className="flex-1 items-center py-1"
+            onPress={() => handleOverflowDateTap(i, nextMonthNum, nextYearNum)}>
             <View className="w-7 h-7 rounded-full items-center justify-center">
               <Text className="text-xs" style={{ color: "#9CA3AF" }}>{i}</Text>
             </View>
-            {hasApproved && (
+            {approvedForDay.length > 0 && (
               <View className="flex-row mt-0.5 gap-0.5">
                 {approvedForDay.slice(0, 3).map((r, idx) => (
-                  <View
-                    key={idx}
-                    style={{ backgroundColor: getDutyColor(r.dutyType), width: 5, height: 5, borderRadius: 2.5, opacity: 0.6 }}
-                  />
+                  <View key={idx} style={{ backgroundColor: getDutyColor(r.dutyType), width: 5, height: 5, borderRadius: 2.5, opacity: 0.6 }} />
                 ))}
               </View>
             )}
@@ -488,20 +465,14 @@ export default function AdminApproveScreen() {
       }
     }
 
-    // Build rows
     const rows: React.ReactNode[] = [];
     for (let i = 0; i < cells.length; i += 7) {
-      rows.push(
-        <View key={`row-${i}`} className="flex-row">
-          {cells.slice(i, i + 7)}
-        </View>
-      );
+      rows.push(<View key={`row-${i}`} className="flex-row">{cells.slice(i, i + 7)}</View>);
     }
-
     return rows;
   };
 
-  // Pending list item — always show inline approve/reject buttons for easy access
+  // Pending list item
   const renderPendingItem = ({ item }: { item: DutyRequest }) => {
     if (batchMode) {
       const isSelected = selectedIds.has(item.id!);
@@ -509,28 +480,42 @@ export default function AdminApproveScreen() {
         <TouchableOpacity
           onPress={() => toggleSelect(item.id!)}
           activeOpacity={0.7}
-          style={{ paddingVertical: 14, paddingHorizontal: 16 }}
-          className="flex-row items-center bg-background border-b border-border"
+          style={{
+            paddingVertical: 14,
+            paddingHorizontal: 16,
+            backgroundColor: isSelected ? "#F0FDF4" : undefined,
+          }}
+          className="flex-row items-center border-b border-border"
         >
+          {/* Checkbox */}
           <View
-            className="w-6 h-6 rounded mr-3 items-center justify-center border"
             style={{
+              width: 24,
+              height: 24,
+              borderRadius: 6,
+              borderWidth: 2,
+              borderColor: isSelected ? "#22C55E" : "#D1D5DB",
               backgroundColor: isSelected ? "#22C55E" : "transparent",
-              borderColor: isSelected ? "#22C55E" : "#9CA3AF",
+              alignItems: "center",
+              justifyContent: "center",
+              marginRight: 12,
             }}
           >
-            {isSelected && <MaterialIcons name="check" size={16} color="#fff" />}
+            {isSelected && <MaterialIcons name="check" size={15} color="#fff" />}
           </View>
-          <View
-            className="w-9 h-9 rounded-full mr-3"
-            style={{ backgroundColor: "#D1D5DB" }}
-          />
+
+          {/* Avatar */}
+          <View className="w-9 h-9 rounded-full mr-3" style={{ backgroundColor: "#D1D5DB" }} />
+
+          {/* Info */}
           <View className="flex-1">
             <Text className="text-sm font-bold text-foreground" numberOfLines={1}>
               {item.userName}
             </Text>
             <Text className="text-xs text-muted mt-0.5">{item.date}</Text>
           </View>
+
+          {/* Duty badge */}
           <View
             style={{ backgroundColor: getDutyColor(item.dutyType) }}
             className="px-3 py-1.5 rounded-lg"
@@ -541,8 +526,7 @@ export default function AdminApproveScreen() {
       );
     }
 
-    // Non-batch mode: show inline approve/reject buttons always (web + native)
-    // On native, also wrap in Swipeable for swipe gesture support
+    // Normal mode: inline ✓/✗ buttons + swipe on native
     const itemContent = (
       <View
         style={{ paddingVertical: 12, paddingHorizontal: 16 }}
@@ -588,7 +572,6 @@ export default function AdminApproveScreen() {
       </View>
     );
 
-    // On native, also enable swipe for power users
     if (Platform.OS !== "web") {
       return (
         <Swipeable
@@ -601,7 +584,6 @@ export default function AdminApproveScreen() {
         </Swipeable>
       );
     }
-
     return itemContent;
   };
 
@@ -609,9 +591,7 @@ export default function AdminApproveScreen() {
     return (
       <ScreenContainer className="flex-1 items-center justify-center px-6">
         <MaterialIcons name="lock" size={48} color="#9BA1A6" />
-        <Text className="text-lg text-muted mt-4 text-center">
-          Admin access required
-        </Text>
+        <Text className="text-lg text-muted mt-4 text-center">Admin access required</Text>
       </ScreenContainer>
     );
   }
@@ -625,23 +605,21 @@ export default function AdminApproveScreen() {
   }
 
   const weeklyHours = getWeeklyHours();
+  const bottomPad = Platform.OS === "web" ? 16 : Math.max(insets.bottom, 12);
 
   return (
     <ScreenContainer className="flex-1">
       {/* Header */}
       <View className="items-center py-2 border-b border-border">
-        <Text className="text-lg font-bold text-foreground">
-          Requests pending approval
-        </Text>
+        <Text className="text-lg font-bold text-foreground">Requests pending approval</Text>
       </View>
 
-      {/* Selected Staff Info */}
+      {/* Selected Staff Info (normal mode only) */}
       {!batchMode && (
         <View className="flex-row mx-4 mt-2 mb-1">
           <View className="flex-1">
             <Text className="text-xs text-muted">Selected Staff Name:</Text>
-            <Text className="text-xs text-muted">Total working hours this</Text>
-            <Text className="text-xs text-muted">  week (Sun-Sat):</Text>
+            <Text className="text-xs text-muted">Total working hours this week (Sun-Sat):</Text>
           </View>
           <View className="items-end">
             <Text className="text-sm font-bold text-foreground">
@@ -658,140 +636,288 @@ export default function AdminApproveScreen() {
         </View>
       )}
 
-      {/* Calendar - uses available space, larger */}
+      {/* Calendar */}
       <View
         className="mx-3 border border-border rounded-xl p-3 bg-surface"
         style={{ height: CALENDAR_HEIGHT }}
       >
         <View className="flex-row items-center justify-between mb-2">
           <View className="flex-row items-center">
-            <TouchableOpacity onPress={prevMonth} className="p-2 rounded-full" style={{ backgroundColor: '#f5f5f5' }}>
+            <TouchableOpacity onPress={prevMonth} className="p-2 rounded-full" style={{ backgroundColor: "#f5f5f5" }}>
               <MaterialIcons name="chevron-left" size={24} color="#11181C" />
             </TouchableOpacity>
             <Text className="text-base font-bold text-foreground mx-3">
               {String(currentMonth + 1).padStart(2, "0")}/{currentYear}
             </Text>
-            <TouchableOpacity onPress={nextMonth} className="p-2 rounded-full" style={{ backgroundColor: '#f5f5f5' }}>
+            <TouchableOpacity onPress={nextMonth} className="p-2 rounded-full" style={{ backgroundColor: "#f5f5f5" }}>
               <MaterialIcons name="chevron-right" size={24} color="#11181C" />
             </TouchableOpacity>
           </View>
           <View className="flex-row items-center gap-2">
-            <View className="flex-row items-center">
-              <View style={{ backgroundColor: "#EF4444", width: 8, height: 8, borderRadius: 4 }} />
-              <Text className="text-xs text-muted ml-1">A</Text>
-            </View>
-            <View className="flex-row items-center">
-              <View style={{ backgroundColor: "#3B82F6", width: 8, height: 8, borderRadius: 4 }} />
-              <Text className="text-xs text-muted ml-1">P</Text>
-            </View>
-            <View className="flex-row items-center">
-              <View style={{ backgroundColor: "#22C55E", width: 8, height: 8, borderRadius: 4 }} />
-              <Text className="text-xs text-muted ml-1">9-17</Text>
-            </View>
-            <View className="flex-row items-center">
-              <View style={{ backgroundColor: "#86EFAC", width: 8, height: 8, borderRadius: 4 }} />
-              <Text className="text-xs text-muted ml-1">9-13</Text>
-            </View>
+            {[
+              { color: "#EF4444", label: "A" },
+              { color: "#3B82F6", label: "P" },
+              { color: "#22C55E", label: "9-17" },
+              { color: "#86EFAC", label: "9-13" },
+            ].map(({ color, label }) => (
+              <View key={label} className="flex-row items-center">
+                <View style={{ backgroundColor: color, width: 8, height: 8, borderRadius: 4 }} />
+                <Text className="text-xs text-muted ml-1">{label}</Text>
+              </View>
+            ))}
           </View>
         </View>
         {renderCalendar()}
       </View>
 
-      {/* Pending Requests List - Bottom */}
-      <View className="flex-1 mx-3 mt-2 mb-2 border border-border rounded-xl overflow-hidden">
-        <View className="bg-surface px-4 py-2 border-b border-border flex-row items-center justify-between">
-          <View>
+      {/* Pending Requests List */}
+      <View className="flex-1 mx-3 mt-2 border border-border rounded-xl overflow-hidden"
+        style={{ marginBottom: batchMode ? 0 : 8 }}>
+        {/* List header */}
+        <View className="bg-surface px-4 py-2.5 border-b border-border flex-row items-center justify-between">
+          <View className="flex-1">
             <Text className="text-sm font-bold text-foreground">
               Pending Requests ({pendingRequests.length})
             </Text>
             {!batchMode && Platform.OS !== "web" && (
-              <Text className="text-xs text-muted">
-                Tap ✓/✗ or swipe to approve/reject
+              <Text className="text-xs text-muted mt-0.5">Tap ✓/✗ or swipe to approve/reject</Text>
+            )}
+            {batchMode && (
+              <Text className="text-xs text-muted mt-0.5">
+                {selectedIds.size === 0
+                  ? "Tap items to select"
+                  : `${selectedIds.size} of ${pendingRequests.length} selected`}
               </Text>
             )}
           </View>
-          {pendingRequests.length > 0 && (
+
+          {/* Batch mode toggle button */}
+          {!batchMode && pendingRequests.length > 0 && (
             <TouchableOpacity
-              onPress={toggleBatchMode}
-              className="px-3 py-1.5 rounded-lg"
-              style={{ backgroundColor: batchMode ? "#EF4444" : "#3B82F6" }}
+              onPress={enterBatchMode}
+              style={{ backgroundColor: "#3B82F6", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 }}
             >
-              <Text className="text-white text-xs font-bold">
-                {batchMode ? "Cancel" : "Batch"}
-              </Text>
+              <Text className="text-white text-xs font-bold">Batch</Text>
             </TouchableOpacity>
+          )}
+          {batchMode && (
+            <View className="flex-row items-center" style={{ gap: 8 }}>
+              {/* Select All toggle */}
+              <TouchableOpacity
+                onPress={toggleSelectAll}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  borderRadius: 8,
+                  paddingHorizontal: 10,
+                  paddingVertical: 6,
+                  borderWidth: 1.5,
+                  borderColor: isAllSelected ? "#22C55E" : "#D1D5DB",
+                  backgroundColor: isAllSelected ? "#F0FDF4" : "transparent",
+                  gap: 4,
+                }}
+              >
+                <View
+                  style={{
+                    width: 16,
+                    height: 16,
+                    borderRadius: 4,
+                    borderWidth: 1.5,
+                    borderColor: isAllSelected ? "#22C55E" : "#9CA3AF",
+                    backgroundColor: isAllSelected ? "#22C55E" : "transparent",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {isAllSelected && <MaterialIcons name="check" size={11} color="#fff" />}
+                </View>
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: "600",
+                    color: isAllSelected ? "#22C55E" : "#687076",
+                  }}
+                >
+                  All
+                </Text>
+              </TouchableOpacity>
+
+              {/* Cancel batch */}
+              <TouchableOpacity
+                onPress={exitBatchMode}
+                style={{ backgroundColor: "#F3F4F6", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 }}
+              >
+                <Text style={{ fontSize: 12, fontWeight: "600", color: "#374151" }}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
           )}
         </View>
 
-        {/* Batch action bar */}
-        {batchMode && (
-          <View className="flex-row items-center px-4 py-2 bg-surface border-b border-border gap-2">
-            <TouchableOpacity
-              onPress={selectAll}
-              className="px-3 py-1.5 rounded-lg border border-border"
-            >
-              <Text className="text-xs font-semibold text-foreground">
-                {selectedIds.size === pendingRequests.length ? "Deselect All" : "Select All"}
-              </Text>
-            </TouchableOpacity>
-            <View className="flex-1" />
-            <TouchableOpacity
-              onPress={handleBatchApprove}
-              disabled={selectedIds.size === 0 || batchProcessing}
-              className="px-3 py-1.5 rounded-lg"
-              style={{ backgroundColor: selectedIds.size > 0 ? "#22C55E" : "#D1D5DB" }}
-            >
-              {batchProcessing ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text className="text-white text-xs font-bold">
-                  Approve ({selectedIds.size})
-                </Text>
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={handleBatchReject}
-              disabled={selectedIds.size === 0 || batchProcessing}
-              className="px-3 py-1.5 rounded-lg"
-              style={{ backgroundColor: selectedIds.size > 0 ? "#EF4444" : "#D1D5DB" }}
-            >
-              {batchProcessing ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text className="text-white text-xs font-bold">
-                  Reject ({selectedIds.size})
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
-
+        {/* List */}
         {pendingRequests.length === 0 ? (
           <FlatList
             data={[]}
             renderItem={() => null}
             ListEmptyComponent={
               <View className="items-center justify-center py-8">
-                <Text className="text-muted text-sm">No pending requests</Text>
+                <MaterialIcons name="check-circle" size={40} color="#D1D5DB" />
+                <Text className="text-muted text-sm mt-2">No pending requests</Text>
               </View>
             }
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-            }
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           />
         ) : (
           <FlatList
             data={pendingRequests}
             renderItem={renderPendingItem}
             keyExtractor={(item) => item.id || Math.random().toString()}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-            }
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           />
         )}
       </View>
 
-      {/* Approved Duties Modal (on date tap) */}
+      {/* ── Sticky Batch Action Bar ── */}
+      {batchMode && (
+        <Animated.View
+          style={{
+            transform: [
+              {
+                translateY: batchBarAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [120, 0],
+                }),
+              },
+            ],
+            paddingBottom: bottomPad,
+            backgroundColor: "#fff",
+            borderTopWidth: 1,
+            borderTopColor: "#E5E7EB",
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: -2 },
+            shadowOpacity: 0.08,
+            shadowRadius: 8,
+            elevation: 8,
+          }}
+        >
+          {/* Progress bar (shown during processing) */}
+          {batchProcessing && batchProgress && (
+            <View style={{ paddingHorizontal: 16, paddingTop: 10 }}>
+              <View className="flex-row items-center justify-between mb-1">
+                <Text style={{ fontSize: 12, color: "#687076" }}>
+                  {batchAction === "approve" ? "Approving" : "Rejecting"}…{" "}
+                  {batchProgress.done}/{batchProgress.total}
+                </Text>
+                <Text style={{ fontSize: 12, color: "#687076" }}>
+                  {Math.round((batchProgress.done / batchProgress.total) * 100)}%
+                </Text>
+              </View>
+              <View
+                style={{
+                  height: 4,
+                  backgroundColor: "#E5E7EB",
+                  borderRadius: 2,
+                  overflow: "hidden",
+                }}
+              >
+                <View
+                  style={{
+                    height: 4,
+                    borderRadius: 2,
+                    backgroundColor: batchAction === "approve" ? "#22C55E" : "#EF4444",
+                    width: `${(batchProgress.done / batchProgress.total) * 100}%`,
+                  }}
+                />
+              </View>
+            </View>
+          )}
+
+          {/* Action buttons */}
+          <View
+            style={{
+              flexDirection: "row",
+              paddingHorizontal: 16,
+              paddingTop: 12,
+              gap: 12,
+            }}
+          >
+            {/* Reject button */}
+            <TouchableOpacity
+              onPress={() => runBatch("reject")}
+              disabled={selectedIds.size === 0 || batchProcessing}
+              style={{
+                flex: 1,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 12,
+                paddingVertical: 14,
+                backgroundColor: selectedIds.size > 0 && !batchProcessing ? "#EF4444" : "#F3F4F6",
+                gap: 6,
+              }}
+            >
+              {batchProcessing && batchAction === "reject" ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <MaterialIcons
+                    name="close"
+                    size={18}
+                    color={selectedIds.size > 0 && !batchProcessing ? "#fff" : "#9CA3AF"}
+                  />
+                  <Text
+                    style={{
+                      fontSize: 15,
+                      fontWeight: "700",
+                      color: selectedIds.size > 0 && !batchProcessing ? "#fff" : "#9CA3AF",
+                    }}
+                  >
+                    Reject {selectedIds.size > 0 ? `(${selectedIds.size})` : ""}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            {/* Approve button */}
+            <TouchableOpacity
+              onPress={() => runBatch("approve")}
+              disabled={selectedIds.size === 0 || batchProcessing}
+              style={{
+                flex: 1,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 12,
+                paddingVertical: 14,
+                backgroundColor: selectedIds.size > 0 && !batchProcessing ? "#22C55E" : "#F3F4F6",
+                gap: 6,
+              }}
+            >
+              {batchProcessing && batchAction === "approve" ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <MaterialIcons
+                    name="check"
+                    size={18}
+                    color={selectedIds.size > 0 && !batchProcessing ? "#fff" : "#9CA3AF"}
+                  />
+                  <Text
+                    style={{
+                      fontSize: 15,
+                      fontWeight: "700",
+                      color: selectedIds.size > 0 && !batchProcessing ? "#fff" : "#9CA3AF",
+                    }}
+                  >
+                    Approve {selectedIds.size > 0 ? `(${selectedIds.size})` : ""}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      )}
+
+      {/* Approved Duties Modal */}
       <Modal
         visible={showDutyModal}
         transparent
@@ -801,26 +927,18 @@ export default function AdminApproveScreen() {
         <View className="flex-1 justify-center px-6" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
           <View className="bg-background rounded-2xl p-4 max-h-[60%]">
             <Text className="text-lg font-bold text-foreground text-center mb-3">
-              Approved Duties - {selectedDateStr}
+              Approved Duties — {selectedDateStr}
             </Text>
             <FlatList
               data={selectedDateDuties}
               keyExtractor={(item) => item.id || Math.random().toString()}
               renderItem={({ item }) => (
                 <View className="flex-row items-center py-3 px-3 border-b border-border">
-                  <View
-                    className="w-8 h-8 rounded-full mr-3"
-                    style={{ backgroundColor: "#D1D5DB" }}
-                  />
+                  <View className="w-8 h-8 rounded-full mr-3" style={{ backgroundColor: "#D1D5DB" }} />
                   <View className="flex-1">
-                    <Text className="text-sm font-bold text-foreground">
-                      {item.userName}
-                    </Text>
+                    <Text className="text-sm font-bold text-foreground">{item.userName}</Text>
                   </View>
-                  <View
-                    style={{ backgroundColor: getDutyColor(item.dutyType) }}
-                    className="px-2 py-1 rounded"
-                  >
+                  <View style={{ backgroundColor: getDutyColor(item.dutyType) }} className="px-2 py-1 rounded">
                     <Text className="text-white text-xs font-bold">{item.dutyType}</Text>
                   </View>
                 </View>
