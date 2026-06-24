@@ -360,7 +360,7 @@ export default function ApprovedDutyScreen() {
     for (let i = 0; i < allCells.length; i += 7) {
       const week = allCells.slice(i, i + 7);
       rows.push(
-        <View key={`row-${i}`} className="flex-row" style={{ marginVertical: 2 }}>
+        <View key={`row-${i}`} className="flex-row" style={{ marginVertical: 3 }}>
           {week.map((cell, idx) => {
             const isToday =
               isCurrentMonth && !cell.isOverflow && todayDate.getDate() === cell.day;
@@ -371,7 +371,7 @@ export default function ApprovedDutyScreen() {
               <TouchableOpacity
                 key={`${i}-${idx}`}
                 className="flex-1 items-center"
-                style={{ paddingVertical: 3 }}
+                style={{ paddingVertical: 4 }}
                 onPress={() => {
                   if (cell.isOverflow) {
                     handleOverflowDateTap(cell.day, cell.month, cell.year);
@@ -399,7 +399,7 @@ export default function ApprovedDutyScreen() {
                   </Text>
                 </View>
                 {hasApproved && (
-                  <View className="flex-row mt-0.5" style={{ gap: 2 }}>
+                  <View className="flex-row mt-1" style={{ gap: 2 }}>
                     {approvedForDay.slice(0, 4).map((r, dotIdx) => (
                       <View
                         key={dotIdx}
@@ -526,7 +526,7 @@ export default function ApprovedDutyScreen() {
       {/* Calendar - compact fixed height, just enough to show all dates */}
       <View
         className="mx-3 mt-2 mb-2 border border-border rounded-xl p-2 bg-surface"
-        style={{ height: 260 }}
+        style={{ height: 310 }}
         {...calendarPanResponder.panHandlers}
       >
         <View className="flex-row items-center justify-between mb-2">

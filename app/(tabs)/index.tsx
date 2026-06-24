@@ -45,14 +45,24 @@ export default function RequestDutyScreen() {
   const [requests, setRequests] = useState<RequestRow[]>(
     INITIAL_REQUESTS.map((r) => ({ ...r }))
   );
+  const [rowErrors, setRowErrors] = useState<(string | null)[]>([null, null, null, null, null]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState<number | null>(null);
   const [showDutyPicker, setShowDutyPicker] = useState<number | null>(null);
+
+  const clearRowError = (index: number) => {
+    setRowErrors((prev) => {
+      const updated = [...prev];
+      updated[index] = null;
+      return updated;
+    });
+  };
 
   const handleReset = (index: number) => {
     const updated = [...requests];
     updated[index] = { date: null, dutyType: null };
     setRequests(updated);
+    clearRowError(index);
   };
 
   const handleDateSelect = (index: number, date: Date) => {
@@ -60,6 +70,16 @@ export default function RequestDutyScreen() {
     updated[index].date = date;
     setRequests(updated);
     setShowDatePicker(null);
+    // Check if duty is missing
+    if (!updated[index].dutyType) {
+      setRowErrors((prev) => {
+        const errs = [...prev];
+        errs[index] = "Please also select a duty type";
+        return errs;
+      });
+    } else {
+      clearRowError(index);
+    }
   };
 
   const handleDutySelect = (index: number, duty: DutyType) => {
@@ -67,20 +87,34 @@ export default function RequestDutyScreen() {
     updated[index].dutyType = duty;
     setRequests(updated);
     setShowDutyPicker(null);
+    // Check if date is missing
+    if (!updated[index].date) {
+      setRowErrors((prev) => {
+        const errs = [...prev];
+        errs[index] = "Please also select a date";
+        return errs;
+      });
+    } else {
+      clearRowError(index);
+    }
   };
 
   const handleSubmit = async () => {
     // Validate: neither date nor duty option allowed blank (if one is filled, both must be)
+    const newErrors: (string | null)[] = [null, null, null, null, null];
+    let hasError = false;
     for (let i = 0; i < requests.length; i++) {
       const r = requests[i];
-      if ((r.date && !r.dutyType) || (!r.date && r.dutyType)) {
-        Alert.alert(
-          "Incomplete Request",
-          `Request ${i + 1}: Both date and duty option must be selected, or both left blank.`
-        );
-        return;
+      if (r.date && !r.dutyType) {
+        newErrors[i] = "Please select a duty type";
+        hasError = true;
+      } else if (!r.date && r.dutyType) {
+        newErrors[i] = "Please select a date";
+        hasError = true;
       }
     }
+    setRowErrors(newErrors);
+    if (hasError) return;
 
     const validRequests = requests.filter((r) => r.date && r.dutyType);
     if (validRequests.length === 0) {
@@ -138,6 +172,7 @@ export default function RequestDutyScreen() {
       Alert.alert("Success", "Your duty request(s) have been submitted.");
       // Clear all slots after submission
       setRequests(INITIAL_REQUESTS.map((r) => ({ ...r })));
+      setRowErrors([null, null, null, null, null]);
     } catch (error) {
       console.error("Submit error:", error);
       Alert.alert("Error", "Failed to submit request. Please try again.");
@@ -183,39 +218,52 @@ export default function RequestDutyScreen() {
 
         {/* Request Rows (5 slots) */}
         {requests.map((req, index) => (
-          <View
-            key={index}
-            className="flex-row items-center mb-4 py-3 px-2 border-b border-border"
-          >
-            <Text className="text-base font-bold text-foreground w-24">
-              Request {index + 1}
-            </Text>
-
-            <TouchableOpacity
-              onPress={() => setShowDatePicker(index)}
-              className="flex-1 mx-2 py-2 px-3 rounded-lg border border-border bg-surface"
-            >
-              <Text className={`text-sm ${req.date ? "text-foreground" : "text-muted"}`}>
-                {req.date ? formatDate(req.date) : "Date"}
+          <View key={index} className="mb-3">
+            <View className="flex-row items-center py-3 px-2 border-b border-border">
+              <Text className="text-base font-bold text-foreground w-24">
+                Request {index + 1}
               </Text>
-            </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={() => setShowDutyPicker(index)}
-              className="flex-1 mx-2 py-2 px-3 rounded-lg border border-border bg-surface"
-            >
-              <Text className={`text-sm ${req.dutyType ? "text-foreground" : "text-muted"}`}>
-                {req.dutyType || "Select duty"}
+              <TouchableOpacity
+                onPress={() => setShowDatePicker(index)}
+                className="flex-1 mx-2 py-2 px-3 rounded-lg border bg-surface"
+                style={{
+                  borderColor: rowErrors[index] && !req.date ? "#EF4444" : "#E5E7EB",
+                }}
+              >
+                <Text className={`text-sm ${req.date ? "text-foreground" : "text-muted"}`}>
+                  {req.date ? formatDate(req.date) : "Date"}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setShowDutyPicker(index)}
+                className="flex-1 mx-2 py-2 px-3 rounded-lg border bg-surface"
+                style={{
+                  borderColor: rowErrors[index] && !req.dutyType ? "#EF4444" : "#E5E7EB",
+                }}
+              >
+                <Text className={`text-sm ${req.dutyType ? "text-foreground" : "text-muted"}`}>
+                  {req.dutyType || "Select duty"}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => handleReset(index)}
+                style={{ backgroundColor: "#E91E8B" }}
+                className="w-10 h-10 rounded-full items-center justify-center"
+              >
+                <Text className="text-white text-xs font-semibold">Reset</Text>
+              </TouchableOpacity>
+            </View>
+            {rowErrors[index] && (
+              <Text
+                className="text-xs px-2 mt-1"
+                style={{ color: "#EF4444" }}
+              >
+                ⚠ {rowErrors[index]}
               </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => handleReset(index)}
-              style={{ backgroundColor: "#E91E8B" }}
-              className="w-10 h-10 rounded-full items-center justify-center"
-            >
-              <Text className="text-white text-xs font-semibold">Reset</Text>
-            </TouchableOpacity>
+            )}
           </View>
         ))}
 

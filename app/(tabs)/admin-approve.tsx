@@ -323,7 +323,7 @@ export default function AdminApproveScreen() {
     setSelectedStaff({ name: request.userName, userId: request.userId, dutyDate: request.date });
   };
 
-  // Swipe actions
+  // Swipe actions — right swipe reveals left panel (reject), left swipe reveals right panel (approve)
   const renderRightActions = (request: DutyRequest) => (
     <TouchableOpacity
       onPress={() => handleApprove(request)}
@@ -396,10 +396,10 @@ export default function AdminApproveScreen() {
       cells.push(
         <TouchableOpacity
           key={`prev-${i}`}
-          className="flex-1 items-center py-0.5"
+          className="flex-1 items-center py-1"
           onPress={() => handleOverflowDateTap(overflowDay, prevMonthNum, prevYearNum)}
         >
-          <View className="w-6 h-6 rounded-full items-center justify-center">
+          <View className="w-7 h-7 rounded-full items-center justify-center">
             <Text className="text-xs" style={{ color: "#9CA3AF" }}>{overflowDay}</Text>
           </View>
           {hasApproved && (
@@ -425,11 +425,11 @@ export default function AdminApproveScreen() {
       cells.push(
         <TouchableOpacity
           key={`day-${day}`}
-          className="flex-1 items-center py-0.5"
+          className="flex-1 items-center py-1"
           onPress={() => handleDateTap(day)}
         >
           <View
-            className={`w-6 h-6 rounded-full items-center justify-center ${
+            className={`w-7 h-7 rounded-full items-center justify-center ${
               isToday ? "bg-primary" : ""
             }`}
           >
@@ -467,10 +467,10 @@ export default function AdminApproveScreen() {
         cells.push(
           <TouchableOpacity
             key={`next-${i}`}
-            className="flex-1 items-center py-0.5"
+            className="flex-1 items-center py-1"
             onPress={() => handleOverflowDateTap(i, nextMonthNum, nextYearNum)}
           >
-            <View className="w-6 h-6 rounded-full items-center justify-center">
+            <View className="w-7 h-7 rounded-full items-center justify-center">
               <Text className="text-xs" style={{ color: "#9CA3AF" }}>{i}</Text>
             </View>
             {hasApproved && (
@@ -501,7 +501,7 @@ export default function AdminApproveScreen() {
     return rows;
   };
 
-  // Pending list item
+  // Pending list item — always show inline approve/reject buttons for easy access
   const renderPendingItem = ({ item }: { item: DutyRequest }) => {
     if (batchMode) {
       const isSelected = selectedIds.has(item.id!);
@@ -509,7 +509,8 @@ export default function AdminApproveScreen() {
         <TouchableOpacity
           onPress={() => toggleSelect(item.id!)}
           activeOpacity={0.7}
-          className="flex-row items-center py-3 px-4 bg-background border-b border-border"
+          style={{ paddingVertical: 14, paddingHorizontal: 16 }}
+          className="flex-row items-center bg-background border-b border-border"
         >
           <View
             className="w-6 h-6 rounded mr-3 items-center justify-center border"
@@ -528,11 +529,11 @@ export default function AdminApproveScreen() {
             <Text className="text-sm font-bold text-foreground" numberOfLines={1}>
               {item.userName}
             </Text>
-            <Text className="text-xs text-muted">{item.date}</Text>
+            <Text className="text-xs text-muted mt-0.5">{item.date}</Text>
           </View>
           <View
             style={{ backgroundColor: getDutyColor(item.dutyType) }}
-            className="px-2 py-1 rounded"
+            className="px-3 py-1.5 rounded-lg"
           >
             <Text className="text-white text-xs font-bold">{item.dutyType}</Text>
           </View>
@@ -540,75 +541,68 @@ export default function AdminApproveScreen() {
       );
     }
 
-    // On web, Swipeable doesn't work well — show inline approve/reject buttons
-    if (Platform.OS === "web") {
-      return (
-        <View className="flex-row items-center py-3 px-4 bg-background border-b border-border">
-          <TouchableOpacity onPress={() => handleStaffTap(item)} className="flex-1 flex-row items-center">
-            <View className="w-9 h-9 rounded-full mr-3" style={{ backgroundColor: "#D1D5DB" }} />
-            <View className="flex-1">
-              <Text className="text-sm font-bold text-foreground" numberOfLines={1}>{item.userName}</Text>
-              <Text className="text-xs text-muted">{item.date}</Text>
-            </View>
-            <View style={{ backgroundColor: getDutyColor(item.dutyType) }} className="px-2 py-1 rounded mr-2">
-              <Text className="text-white text-xs font-bold">{item.dutyType}</Text>
-            </View>
-          </TouchableOpacity>
-          {processingId === item.id ? (
-            <ActivityIndicator size="small" color="#4CAF50" />
-          ) : (
-            <View className="flex-row gap-2">
-              <TouchableOpacity
-                onPress={() => handleApprove(item)}
-                style={{ backgroundColor: "#22C55E" }}
-                className="px-3 py-2 rounded-lg"
-              >
-                <MaterialIcons name="check" size={18} color="#fff" />
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => handleReject(item)}
-                style={{ backgroundColor: "#EF4444" }}
-                className="px-3 py-2 rounded-lg"
-              >
-                <MaterialIcons name="close" size={18} color="#fff" />
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-      );
-    }
-
-    return (
-      <Swipeable
-        renderRightActions={() => renderRightActions(item)}
-        renderLeftActions={() => renderLeftActions(item)}
-        overshootRight={false}
-        overshootLeft={false}
+    // Non-batch mode: show inline approve/reject buttons always (web + native)
+    // On native, also wrap in Swipeable for swipe gesture support
+    const itemContent = (
+      <View
+        style={{ paddingVertical: 12, paddingHorizontal: 16 }}
+        className="flex-row items-center bg-background border-b border-border"
       >
         <TouchableOpacity
           onPress={() => handleStaffTap(item)}
+          className="flex-1 flex-row items-center"
           activeOpacity={0.7}
-          className="flex-row items-center py-3 px-4 bg-background border-b border-border"
         >
-          <View
-            className="w-9 h-9 rounded-full mr-3"
-            style={{ backgroundColor: "#D1D5DB" }}
-          />
-          <View className="flex-1">
+          <View className="w-9 h-9 rounded-full mr-3" style={{ backgroundColor: "#D1D5DB" }} />
+          <View className="flex-1 mr-2">
             <Text className="text-sm font-bold text-foreground" numberOfLines={1}>
               {item.userName}
             </Text>
-            <Text className="text-xs text-muted">{item.date}</Text>
+            <Text className="text-xs text-muted mt-0.5">{item.date}</Text>
           </View>
           <View
             style={{ backgroundColor: getDutyColor(item.dutyType) }}
-            className="px-2 py-1 rounded"
+            className="px-3 py-1.5 rounded-lg mr-3"
           >
             <Text className="text-white text-xs font-bold">{item.dutyType}</Text>
           </View>
         </TouchableOpacity>
-      </Swipeable>
+        {processingId === item.id ? (
+          <ActivityIndicator size="small" color="#4CAF50" style={{ marginHorizontal: 8 }} />
+        ) : (
+          <View className="flex-row" style={{ gap: 8 }}>
+            <TouchableOpacity
+              onPress={() => handleApprove(item)}
+              style={{ backgroundColor: "#22C55E", borderRadius: 8, padding: 8 }}
+            >
+              <MaterialIcons name="check" size={20} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => handleReject(item)}
+              style={{ backgroundColor: "#EF4444", borderRadius: 8, padding: 8 }}
+            >
+              <MaterialIcons name="close" size={20} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
     );
+
+    // On native, also enable swipe for power users
+    if (Platform.OS !== "web") {
+      return (
+        <Swipeable
+          renderRightActions={() => renderRightActions(item)}
+          renderLeftActions={() => renderLeftActions(item)}
+          overshootRight={false}
+          overshootLeft={false}
+        >
+          {itemContent}
+        </Swipeable>
+      );
+    }
+
+    return itemContent;
   };
 
   if (!isAdmin) {
@@ -710,9 +704,9 @@ export default function AdminApproveScreen() {
             <Text className="text-sm font-bold text-foreground">
               Pending Requests ({pendingRequests.length})
             </Text>
-            {!batchMode && (
+            {!batchMode && Platform.OS !== "web" && (
               <Text className="text-xs text-muted">
-                ← Swipe left to approve | Swipe right to reject →
+                Tap ✓/✗ or swipe to approve/reject
               </Text>
             )}
           </View>
