@@ -69,6 +69,8 @@ export default function SettingsScreen() {
   const [masterPwError, setMasterPwError] = useState("");
   // pending action after master password verified
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+  // whether the user list is unlocked (visible)
+  const [userListUnlocked, setUserListUnlocked] = useState(false);
 
   const requireMasterPassword = (action: () => void) => {
     setPendingAction(() => action);
@@ -553,18 +555,53 @@ export default function SettingsScreen() {
         </View>
         {/* Section 5: User Management */}
         <View className="mx-4 mt-4 p-4 bg-surface rounded-xl border border-border">
-          <View className="flex-row items-center justify-between mb-3">
+          {/* Header row: title + lock/unlock + add user */}
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
             <Text className="text-base font-bold text-foreground">User Management</Text>
-            <TouchableOpacity
-              onPress={() => requireMasterPassword(() => { setUserError(""); setShowAddUser(true); })}
-              style={{ backgroundColor: "#3B82F6" }}
-              className="px-3 py-1.5 rounded-lg"
-            >
-              <Text className="text-white text-sm font-semibold">+ Add User</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              {userListUnlocked && (
+                <TouchableOpacity
+                  onPress={() => requireMasterPassword(() => { setUserError(""); setShowAddUser(true); })}
+                  style={{ backgroundColor: "#3B82F6", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 }}
+                >
+                  <Text style={{ color: "#fff", fontSize: 13, fontWeight: "600" }}>+ Add User</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                onPress={() => {
+                  if (userListUnlocked) {
+                    // Lock the list again
+                    setUserListUnlocked(false);
+                  } else {
+                    requireMasterPassword(() => {
+                      setUserListUnlocked(true);
+                      loadUsers();
+                    });
+                  }
+                }}
+                style={{
+                  backgroundColor: userListUnlocked ? "#EF4444" : "#6B7280",
+                  borderRadius: 8,
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                }}
+              >
+                <Text style={{ color: "#fff", fontSize: 13, fontWeight: "600" }}>
+                  {userListUnlocked ? "Lock" : "Unlock"}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
-          {loadingUsers ? (
+          {/* Locked state: show placeholder */}
+          {!userListUnlocked ? (
+            <View style={{ alignItems: "center", paddingVertical: 20 }}>
+              <Text style={{ fontSize: 28, marginBottom: 8 }}>🔒</Text>
+              <Text style={{ fontSize: 13, color: "#687076", textAlign: "center" }}>
+                Enter master password to view and manage users.
+              </Text>
+            </View>
+          ) : loadingUsers ? (
             <ActivityIndicator size="small" color="#3B82F6" style={{ marginVertical: 12 }} />
           ) : users.length === 0 ? (
             <Text className="text-sm text-muted text-center py-3">No users found</Text>
@@ -575,7 +612,7 @@ export default function SettingsScreen() {
                 style={{
                   flexDirection: "row",
                   alignItems: "center",
-                  paddingVertical: 10,
+                  paddingVertical: 12,
                   borderBottomWidth: 1,
                   borderBottomColor: "#E5E7EB",
                   gap: 10,
@@ -598,23 +635,27 @@ export default function SettingsScreen() {
                     {u.role === "admin" ? "Admin" : "Staff"}
                   </Text>
                 </View>
-                {/* Name and email */}
+                {/* Name, email, staff number */}
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 14, fontWeight: "600", color: "#11181C" }} numberOfLines={1}>
+                  <Text style={{ fontSize: 14, fontWeight: "600", color: "#11181C" }}>
                     {u.name || "—"}
                   </Text>
-                  <Text style={{ fontSize: 12, color: "#687076" }} numberOfLines={1}>
+                  <Text style={{ fontSize: 12, color: "#687076", marginTop: 1 }}>
                     {u.email}
-                    {u.staffNumber ? `  ·  #${u.staffNumber}` : ""}
                   </Text>
+                  {u.staffNumber ? (
+                    <Text style={{ fontSize: 11, color: "#9BA1A6", marginTop: 1 }}>
+                      #{u.staffNumber}
+                    </Text>
+                  ) : null}
                 </View>
                 {/* Delete button - don't allow deleting yourself */}
                 {u.uid !== userProfile?.uid && (
                   <TouchableOpacity
                     onPress={() => handleDeleteUser(u.uid, u.name || u.email)}
-                    style={{ padding: 6 }}
+                    style={{ padding: 8 }}
                   >
-                    <Text style={{ fontSize: 18, color: "#EF4444" }}>{"\ud83d\uddd1"}</Text>
+                    <Text style={{ fontSize: 18, color: "#EF4444" }}>🗑</Text>
                   </TouchableOpacity>
                 )}
               </View>
