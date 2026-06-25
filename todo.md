@@ -77,6 +77,6 @@
 - [x] Fix: Admin reject in Approved page has no response - debug and fix
 - [x] Fix: Add swipe left/right gesture to all calendars for month navigation (admin-approve, approved-duty, date-picker-calendar)
 - [x] Fix: Calendar container box not responsive to calendar content height - remove fixed height, use auto/content sizing
-- [ ] Fix: New request not immediately appearing in admin pending list after submission
-- [ ] Fix: Pull-to-refresh (drag down) not working on admin and other pages
-- [ ] Fix: Admin calendar container fixed height truncates 6-row months - use auto height
+- [x] Fix: New request not immediately appearing in admin pending list after submission
+- [x] Fix: Pull-to-refresh (drag down) not working on admin and other pages
+- [x] Fix: Admin calendar container fixed height truncates 6-row months - use auto height
