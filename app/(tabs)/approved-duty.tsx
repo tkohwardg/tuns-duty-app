@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   Text,
   View,
@@ -83,6 +83,32 @@ export default function ApprovedDutyScreen() {
     setRefreshing(true);
     await loadApproved();
     setRefreshing(false);
+  };
+
+  // Derive the most recent updatedAt timestamp from all approved requests
+  const lastUpdatedTime = useMemo(() => {
+    if (approvedRequests.length === 0) return null;
+    let latest = 0;
+    for (const r of approvedRequests) {
+      const ms = r.updatedAt?.toMillis?.() ?? 0;
+      if (ms > latest) latest = ms;
+    }
+    return latest > 0 ? new Date(latest) : null;
+  }, [approvedRequests]);
+
+  const formatLastUpdated = (date: Date | null): string => {
+    if (!date) return "—";
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins} min ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays === 1) return `Yesterday ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+    return date.toLocaleDateString([], { day: "2-digit", month: "short", year: "numeric" }) +
+      " " + date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
   // Filter: only show duties from today onwards in the list, sorted ascending
@@ -435,6 +461,12 @@ export default function ApprovedDutyScreen() {
           {isOverLimit && (
             <Text style={{ fontSize: 12, fontWeight: "700", color: "#EF4444" }}> (≥14h)</Text>
           )}
+        </View>
+        <View style={{ flexDirection: "row", alignItems: "center", marginTop: 3 }}>
+          <Text style={{ fontSize: 11, color: colors.muted }}>Last updated: </Text>
+          <Text style={{ fontSize: 11, color: colors.muted, fontWeight: "500" }}>
+            {isLoading ? "Loading…" : formatLastUpdated(lastUpdatedTime)}
+          </Text>
         </View>
       </View>
 
