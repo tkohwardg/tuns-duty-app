@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useFocusEffect } from "expo-router";
 import {
   Text,
   View,
@@ -92,6 +93,7 @@ export default function AdminApproveScreen() {
     }
   }, []);
 
+  // Initial load
   useEffect(() => {
     const init = async () => {
       setIsLoading(true);
@@ -100,6 +102,13 @@ export default function AdminApproveScreen() {
     };
     init();
   }, [loadData]);
+
+  // Reload whenever this tab gains focus (so new requests submitted on Request tab appear immediately)
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -596,10 +605,9 @@ export default function AdminApproveScreen() {
         </View>
       )}
 
-      {/* Calendar */}
+      {/* Calendar - auto height so 6-row months are never truncated */}
       <View
         className="mx-3 border border-border rounded-xl p-3 bg-surface"
-        style={{ flex: 1 }}
       >
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
           <View style={{ flexDirection: "row", alignItems: "center" }}>
@@ -628,7 +636,7 @@ export default function AdminApproveScreen() {
           </View>
         </View>
         {/* Calendar grid with swipe support */}
-        <View style={{ flex: 1 }} {...calendarPanResponder.panHandlers}>
+        <View {...calendarPanResponder.panHandlers}>
           {renderCalendar()}
         </View>
       </View>
