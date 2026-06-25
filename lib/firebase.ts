@@ -5,14 +5,17 @@ import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
+  createUserWithEmailAndPassword,
   type User,
 } from "firebase/auth";
+import { initializeApp as initializeSecondaryApp, getApps, deleteApp } from "firebase/app";
 import {
   getFirestore,
   collection,
   doc,
   addDoc,
   updateDoc,
+  setDoc,
   getDocs,
   query,
   where,
@@ -185,6 +188,74 @@ export const checkDuplicateRequest = async (
     const data = doc.data();
     return data.status === "pending" || data.status === "approved";
   });
+};
+
+/**
+ * Create a new user without affecting the current admin's auth session.
+ * Uses a secondary Firebase app instance so the admin stays logged in.
+ */
+export const createUserAsAdmin = async (
+  email: string,
+  password: string,
+  name: string,
+  staffNumber: string,
+  role: "admin" | "user"
+): Promise<{ uid: string }> => {
+  // Use a secondary app instance to avoid signing out the current admin
+  const SECONDARY_APP_NAME = "__admin_create_user__";
+  let secondaryApp;
+  try {
+    // Check if secondary app already exists (cleanup from previous failed attempt)
+    const existingApps = getApps();
+    const existing = existingApps.find((a) => a.name === SECONDARY_APP_NAME);
+    if (existing) {
+      await deleteApp(existing);
+    }
+    secondaryApp = initializeSecondaryApp(firebaseConfig, SECONDARY_APP_NAME);
+    const secondaryAuth = getAuth(secondaryApp);
+
+    // Create the new user in Firebase Auth
+    const credential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+    const newUid = credential.user.uid;
+
+    // Sign out from secondary app immediately
+    await signOut(secondaryAuth);
+    await deleteApp(secondaryApp);
+    secondaryApp = null;
+
+    // Write user profile to Firestore
+    await setDoc(doc(db, COLLECTIONS.USERS, newUid), {
+      uid: newUid,
+      email,
+      name,
+      staffNumber,
+      role,
+    });
+
+    return { uid: newUid };
+  } catch (error) {
+    // Cleanup secondary app on error
+    if (secondaryApp) {
+      try { await deleteApp(secondaryApp); } catch {}
+    }
+    throw error;
+  }
+};
+
+/**
+ * Get all users from Firestore users collection.
+ */
+export const getAllUsers = async (): Promise<UserProfile[]> => {
+  const snapshot = await getDocs(collection(db, COLLECTIONS.USERS));
+  return snapshot.docs.map((d) => d.data() as UserProfile);
+};
+
+/**
+ * Delete a user profile from Firestore (does not delete Firebase Auth account).
+ */
+export const deleteUserProfile = async (uid: string): Promise<void> => {
+  const { deleteDoc } = await import("firebase/firestore");
+  await deleteDoc(doc(db, COLLECTIONS.USERS, uid));
 };
 
 export { auth };

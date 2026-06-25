@@ -80,3 +80,4 @@
 - [x] Fix: New request not immediately appearing in admin pending list after submission
 - [x] Fix: Pull-to-refresh (drag down) not working on admin and other pages
 - [x] Fix: Admin calendar container fixed height truncates 6-row months - use auto height
+- [x] Feature: Settings page - admin can add new users, set password and role (admin/staff)

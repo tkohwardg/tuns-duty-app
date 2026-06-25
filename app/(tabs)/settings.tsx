@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import Constants from "expo-constants";
 import {
   Text,
@@ -15,7 +15,7 @@ import {
 import { ScreenContainer } from "@/components/screen-container";
 import { useAuthContext } from "@/lib/auth-context";
 import { useSettings, type DutyOption } from "@/lib/settings-context";
-import { getAllApprovedRequests, type DutyRequest } from "@/lib/firebase";
+import { getAllApprovedRequests, createUserAsAdmin, getAllUsers, deleteUserProfile, type DutyRequest, type UserProfile } from "@/lib/firebase";
 import { getAuth, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
 import { DatePickerCalendar } from "@/components/date-picker-calendar";
 import * as FileSystem from "expo-file-system/legacy";
@@ -49,6 +49,97 @@ export default function SettingsScreen() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [savingPassword, setSavingPassword] = useState(false);
+
+  // User Management
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [showAddUser, setShowAddUser] = useState(false);
+  const [newUserName, setNewUserName] = useState("");
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserStaffNumber, setNewUserStaffNumber] = useState("");
+  const [newUserPassword, setNewUserPassword] = useState("");
+  const [newUserRole, setNewUserRole] = useState<"admin" | "user">("user");
+  const [savingUser, setSavingUser] = useState(false);
+  const [userError, setUserError] = useState("");
+
+  const loadUsers = useCallback(async () => {
+    setLoadingUsers(true);
+    try {
+      const all = await getAllUsers();
+      // Sort: admins first, then by name
+      all.sort((a, b) => {
+        if (a.role === "admin" && b.role !== "admin") return -1;
+        if (a.role !== "admin" && b.role === "admin") return 1;
+        return (a.name || "").localeCompare(b.name || "");
+      });
+      setUsers(all);
+    } catch (e) {
+      console.error("Failed to load users", e);
+    } finally {
+      setLoadingUsers(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadUsers();
+  }, [loadUsers]);
+
+  const handleAddUser = async () => {
+    setUserError("");
+    if (!newUserName.trim()) { setUserError("Name is required."); return; }
+    if (!newUserEmail.trim() || !newUserEmail.includes("@")) { setUserError("Valid email is required."); return; }
+    if (!newUserPassword || newUserPassword.length < 6) { setUserError("Password must be at least 6 characters."); return; }
+    setSavingUser(true);
+    try {
+      await createUserAsAdmin(
+        newUserEmail.trim().toLowerCase(),
+        newUserPassword,
+        newUserName.trim(),
+        newUserStaffNumber.trim(),
+        newUserRole
+      );
+      setNewUserName("");
+      setNewUserEmail("");
+      setNewUserStaffNumber("");
+      setNewUserPassword("");
+      setNewUserRole("user");
+      setShowAddUser(false);
+      await loadUsers();
+      Alert.alert("Success", "User created successfully.");
+    } catch (error: any) {
+      if (error.code === "auth/email-already-in-use") {
+        setUserError("This email is already registered.");
+      } else if (error.code === "auth/invalid-email") {
+        setUserError("Invalid email address.");
+      } else {
+        setUserError("Failed to create user. Please try again.");
+      }
+    } finally {
+      setSavingUser(false);
+    }
+  };
+
+  const handleDeleteUser = (uid: string, name: string) => {
+    Alert.alert(
+      "Remove User",
+      `Remove "${name}" from the user list? Their duty history will remain.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteUserProfile(uid);
+              await loadUsers();
+            } catch {
+              Alert.alert("Error", "Failed to remove user.");
+            }
+          },
+        },
+      ]
+    );
+  };
 
   // Export
   const [exportStartDate, setExportStartDate] = useState("");
@@ -429,6 +520,77 @@ export default function SettingsScreen() {
             )}
           </TouchableOpacity>
         </View>
+        {/* Section 5: User Management */}
+        <View className="mx-4 mt-4 p-4 bg-surface rounded-xl border border-border">
+          <View className="flex-row items-center justify-between mb-3">
+            <Text className="text-base font-bold text-foreground">User Management</Text>
+            <TouchableOpacity
+              onPress={() => { setUserError(""); setShowAddUser(true); }}
+              style={{ backgroundColor: "#3B82F6" }}
+              className="px-3 py-1.5 rounded-lg"
+            >
+              <Text className="text-white text-sm font-semibold">+ Add User</Text>
+            </TouchableOpacity>
+          </View>
+
+          {loadingUsers ? (
+            <ActivityIndicator size="small" color="#3B82F6" style={{ marginVertical: 12 }} />
+          ) : users.length === 0 ? (
+            <Text className="text-sm text-muted text-center py-3">No users found</Text>
+          ) : (
+            users.map((u) => (
+              <View
+                key={u.uid}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  paddingVertical: 10,
+                  borderBottomWidth: 1,
+                  borderBottomColor: "#E5E7EB",
+                  gap: 10,
+                }}
+              >
+                {/* Role badge */}
+                <View style={{
+                  backgroundColor: u.role === "admin" ? "#FEF3C7" : "#EFF6FF",
+                  borderRadius: 6,
+                  paddingHorizontal: 7,
+                  paddingVertical: 3,
+                  minWidth: 48,
+                  alignItems: "center",
+                }}>
+                  <Text style={{
+                    fontSize: 11,
+                    fontWeight: "700",
+                    color: u.role === "admin" ? "#D97706" : "#3B82F6",
+                  }}>
+                    {u.role === "admin" ? "Admin" : "Staff"}
+                  </Text>
+                </View>
+                {/* Name and email */}
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 14, fontWeight: "600", color: "#11181C" }} numberOfLines={1}>
+                    {u.name || "—"}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: "#687076" }} numberOfLines={1}>
+                    {u.email}
+                    {u.staffNumber ? `  ·  #${u.staffNumber}` : ""}
+                  </Text>
+                </View>
+                {/* Delete button - don't allow deleting yourself */}
+                {u.uid !== userProfile?.uid && (
+                  <TouchableOpacity
+                    onPress={() => handleDeleteUser(u.uid, u.name || u.email)}
+                    style={{ padding: 6 }}
+                  >
+                    <Text style={{ fontSize: 18, color: "#EF4444" }}>{"\ud83d\uddd1"}</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            ))
+          )}
+        </View>
+
       {/* Version Footer */}
       <View style={{ alignItems: "center", paddingVertical: 16, borderTopWidth: 1, borderTopColor: "#E5E7EB" }}>
         <Text style={{ fontSize: 12, color: "#9BA1A6" }}>
@@ -507,6 +669,112 @@ export default function SettingsScreen() {
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
                   <Text className="text-white font-semibold">Add</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Add User Modal */}
+      <Modal
+        visible={showAddUser}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowAddUser(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          className="flex-1 justify-end"
+          style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+        >
+          <View className="bg-background rounded-t-3xl p-5">
+            <Text className="text-lg font-bold text-foreground mb-4">Add New User</Text>
+
+            <Text className="text-sm text-muted mb-1">Full Name *</Text>
+            <TextInput
+              value={newUserName}
+              onChangeText={setNewUserName}
+              placeholder="e.g. Chan Tai Man"
+              className="border border-border rounded-lg px-3 py-2 text-foreground bg-surface mb-3"
+            />
+
+            <Text className="text-sm text-muted mb-1">Staff Number</Text>
+            <TextInput
+              value={newUserStaffNumber}
+              onChangeText={setNewUserStaffNumber}
+              placeholder="e.g. 12345"
+              keyboardType="numeric"
+              className="border border-border rounded-lg px-3 py-2 text-foreground bg-surface mb-3"
+            />
+
+            <Text className="text-sm text-muted mb-1">Email *</Text>
+            <TextInput
+              value={newUserEmail}
+              onChangeText={setNewUserEmail}
+              placeholder="e.g. staff@hospital.hk"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              className="border border-border rounded-lg px-3 py-2 text-foreground bg-surface mb-3"
+            />
+
+            <Text className="text-sm text-muted mb-1">Password * (min. 6 characters)</Text>
+            <TextInput
+              value={newUserPassword}
+              onChangeText={setNewUserPassword}
+              placeholder="Set initial password"
+              secureTextEntry
+              className="border border-border rounded-lg px-3 py-2 text-foreground bg-surface mb-3"
+            />
+
+            <Text className="text-sm text-muted mb-2">Role *</Text>
+            <View className="flex-row gap-3 mb-4">
+              {(["user", "admin"] as const).map((r) => (
+                <TouchableOpacity
+                  key={r}
+                  onPress={() => setNewUserRole(r)}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 10,
+                    borderRadius: 10,
+                    alignItems: "center",
+                    borderWidth: 2,
+                    borderColor: newUserRole === r ? (r === "admin" ? "#D97706" : "#3B82F6") : "#E5E7EB",
+                    backgroundColor: newUserRole === r ? (r === "admin" ? "#FEF3C7" : "#EFF6FF") : "transparent",
+                  }}
+                >
+                  <Text style={{
+                    fontWeight: "700",
+                    fontSize: 14,
+                    color: newUserRole === r ? (r === "admin" ? "#D97706" : "#3B82F6") : "#9CA3AF",
+                  }}>
+                    {r === "admin" ? "Admin" : "Staff"}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {userError ? (
+              <Text style={{ color: "#EF4444", fontSize: 13, marginBottom: 10 }}>{userError}</Text>
+            ) : null}
+
+            <View className="flex-row gap-3">
+              <TouchableOpacity
+                onPress={() => { setShowAddUser(false); setUserError(""); }}
+                className="flex-1 py-2.5 rounded-lg items-center border border-border"
+              >
+                <Text className="text-foreground font-semibold">Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleAddUser}
+                disabled={savingUser}
+                style={{ backgroundColor: "#3B82F6" }}
+                className="flex-1 py-2.5 rounded-lg items-center"
+              >
+                {savingUser ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text className="text-white font-semibold">Create User</Text>
                 )}
               </TouchableOpacity>
             </View>
