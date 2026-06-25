@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import Constants from "expo-constants";
 import {
   Text,
   View,
@@ -428,6 +429,15 @@ export default function SettingsScreen() {
             )}
           </TouchableOpacity>
         </View>
+      {/* Version Footer */}
+      <View style={{ alignItems: "center", paddingVertical: 16, borderTopWidth: 1, borderTopColor: "#E5E7EB" }}>
+        <Text style={{ fontSize: 12, color: "#9BA1A6" }}>
+          TUNS Duty v{Constants.expoConfig?.version ?? "1.0.0"}
+        </Text>
+        <Text style={{ fontSize: 11, color: "#9BA1A6", marginTop: 2 }}>
+          Build: {Constants.expoConfig?.extra?.buildDate ?? new Date().toISOString().slice(0, 10)}
+        </Text>
+      </View>
       </ScrollView>
 
       {/* Add Duty Option Modal */}
