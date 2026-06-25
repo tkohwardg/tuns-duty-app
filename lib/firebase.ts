@@ -69,7 +69,39 @@ export const onAuthChange = (callback: (user: User | null) => void) => {
 export const COLLECTIONS = {
   USERS: "users",
   DUTY_REQUESTS: "duty_requests",
+  APP_CONFIG: "app_config",
 } as const;
+
+// Default master password (used only on first run before Firestore record exists)
+const DEFAULT_MASTER_PASSWORD = "20231204";
+
+/**
+ * Get the master admin password from Firestore.
+ * Falls back to the default if the document doesn't exist yet.
+ */
+export async function getMasterPassword(): Promise<string> {
+  try {
+    const { getDoc } = await import("firebase/firestore");
+    const docRef = doc(db, COLLECTIONS.APP_CONFIG, "master");
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      return (data.masterPassword as string) || DEFAULT_MASTER_PASSWORD;
+    }
+    return DEFAULT_MASTER_PASSWORD;
+  } catch {
+    return DEFAULT_MASTER_PASSWORD;
+  }
+}
+
+/**
+ * Update the master admin password in Firestore.
+ * Requires the caller to have already verified the current password.
+ */
+export async function updateMasterPassword(newPassword: string): Promise<void> {
+  const docRef = doc(db, COLLECTIONS.APP_CONFIG, "master");
+  await setDoc(docRef, { masterPassword: newPassword }, { merge: true });
+}
 
 // Duty request types - dynamic, admin can add custom options via Settings
 export type DutyType = string;

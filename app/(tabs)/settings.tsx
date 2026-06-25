@@ -15,7 +15,7 @@ import {
 import { ScreenContainer } from "@/components/screen-container";
 import { useAuthContext } from "@/lib/auth-context";
 import { useSettings, type DutyOption } from "@/lib/settings-context";
-import { getAllApprovedRequests, createUserAsAdmin, getAllUsers, deleteUserProfile, type DutyRequest, type UserProfile } from "@/lib/firebase";
+import { getAllApprovedRequests, createUserAsAdmin, getAllUsers, deleteUserProfile, getMasterPassword, updateMasterPassword, type DutyRequest, type UserProfile } from "@/lib/firebase";
 import { getAuth, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
 import { DatePickerCalendar } from "@/components/date-picker-calendar";
 import * as FileSystem from "expo-file-system/legacy";
@@ -62,8 +62,8 @@ export default function SettingsScreen() {
   const [savingUser, setSavingUser] = useState(false);
   const [userError, setUserError] = useState("");
 
-  // Master admin password gate
-  const MASTER_PASSWORD = "20231204";
+  // Master admin password gate (loaded from Firestore)
+  const [masterPassword, setMasterPassword] = useState<string | null>(null); // null = not loaded yet
   const [showMasterPwModal, setShowMasterPwModal] = useState(false);
   const [masterPwInput, setMasterPwInput] = useState("");
   const [masterPwError, setMasterPwError] = useState("");
@@ -71,6 +71,17 @@ export default function SettingsScreen() {
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   // whether the user list is unlocked (visible)
   const [userListUnlocked, setUserListUnlocked] = useState(false);
+  // Change master password UI
+  const [showChangeMasterPw, setShowChangeMasterPw] = useState(false);
+  const [newMasterPw, setNewMasterPw] = useState("");
+  const [confirmMasterPw, setConfirmMasterPw] = useState("");
+  const [changingMasterPw, setChangingMasterPw] = useState(false);
+  const [changeMasterPwError, setChangeMasterPwError] = useState("");
+
+  // Load master password from Firestore on mount
+  useEffect(() => {
+    getMasterPassword().then(setMasterPassword);
+  }, []);
 
   const requireMasterPassword = (action: () => void) => {
     setPendingAction(() => action);
@@ -80,7 +91,8 @@ export default function SettingsScreen() {
   };
 
   const handleMasterPwConfirm = () => {
-    if (masterPwInput === MASTER_PASSWORD) {
+    const currentMasterPw = masterPassword ?? "20231204";
+    if (masterPwInput === currentMasterPw) {
       setShowMasterPwModal(false);
       setMasterPwInput("");
       setMasterPwError("");
@@ -90,6 +102,31 @@ export default function SettingsScreen() {
       }
     } else {
       setMasterPwError("Incorrect master password. Please try again.");
+    }
+  };
+
+  const handleChangeMasterPassword = async () => {
+    setChangeMasterPwError("");
+    if (!newMasterPw || newMasterPw.length < 6) {
+      setChangeMasterPwError("New password must be at least 6 characters.");
+      return;
+    }
+    if (newMasterPw !== confirmMasterPw) {
+      setChangeMasterPwError("Passwords do not match.");
+      return;
+    }
+    setChangingMasterPw(true);
+    try {
+      await updateMasterPassword(newMasterPw);
+      setMasterPassword(newMasterPw);
+      setNewMasterPw("");
+      setConfirmMasterPw("");
+      setShowChangeMasterPw(false);
+      Alert.alert("Success", "Master password updated successfully.");
+    } catch {
+      setChangeMasterPwError("Failed to update password. Please try again.");
+    } finally {
+      setChangingMasterPw(false);
     }
   };
 
@@ -662,6 +699,107 @@ export default function SettingsScreen() {
             ))
           )}
         </View>
+
+        {/* Section 6: Change Master Password (admin only) */}
+        {isAdmin && (
+          <View className="mx-4 mt-4 mb-2 p-4 bg-surface rounded-xl border border-border">
+            <Text className="text-base font-bold text-foreground mb-3">Master Password</Text>
+            {!showChangeMasterPw ? (
+              <TouchableOpacity
+                onPress={() => requireMasterPassword(() => {
+                  setNewMasterPw("");
+                  setConfirmMasterPw("");
+                  setChangeMasterPwError("");
+                  setShowChangeMasterPw(true);
+                })}
+                style={{
+                  backgroundColor: "#F59E0B",
+                  borderRadius: 10,
+                  paddingVertical: 12,
+                  alignItems: "center",
+                }}
+              >
+                <Text style={{ color: "#fff", fontWeight: "700", fontSize: 14 }}>Change Master Password</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={{ gap: 10 }}>
+                <Text style={{ fontSize: 12, color: "#687076", marginBottom: 2 }}>
+                  Enter a new master password (min. 6 characters).
+                </Text>
+                <TextInput
+                  value={newMasterPw}
+                  onChangeText={(t) => { setNewMasterPw(t); setChangeMasterPwError(""); }}
+                  placeholder="New master password"
+                  secureTextEntry
+                  returnKeyType="next"
+                  style={{
+                    borderWidth: 1,
+                    borderColor: changeMasterPwError ? "#EF4444" : "#E5E7EB",
+                    borderRadius: 10,
+                    paddingHorizontal: 14,
+                    paddingVertical: 10,
+                    fontSize: 15,
+                    color: "#11181C",
+                    backgroundColor: "#F9FAFB",
+                  }}
+                />
+                <TextInput
+                  value={confirmMasterPw}
+                  onChangeText={(t) => { setConfirmMasterPw(t); setChangeMasterPwError(""); }}
+                  placeholder="Confirm new master password"
+                  secureTextEntry
+                  returnKeyType="done"
+                  onSubmitEditing={handleChangeMasterPassword}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: changeMasterPwError ? "#EF4444" : "#E5E7EB",
+                    borderRadius: 10,
+                    paddingHorizontal: 14,
+                    paddingVertical: 10,
+                    fontSize: 15,
+                    color: "#11181C",
+                    backgroundColor: "#F9FAFB",
+                  }}
+                />
+                {changeMasterPwError ? (
+                  <Text style={{ color: "#EF4444", fontSize: 12 }}>{changeMasterPwError}</Text>
+                ) : null}
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  <TouchableOpacity
+                    onPress={() => { setShowChangeMasterPw(false); setChangeMasterPwError(""); }}
+                    style={{
+                      flex: 1,
+                      paddingVertical: 11,
+                      borderRadius: 10,
+                      alignItems: "center",
+                      borderWidth: 1,
+                      borderColor: "#E5E7EB",
+                    }}
+                  >
+                    <Text style={{ fontWeight: "600", color: "#11181C" }}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handleChangeMasterPassword}
+                    disabled={changingMasterPw}
+                    style={{
+                      flex: 1,
+                      paddingVertical: 11,
+                      borderRadius: 10,
+                      alignItems: "center",
+                      backgroundColor: changingMasterPw ? "#9CA3AF" : "#F59E0B",
+                    }}
+                  >
+                    {changingMasterPw ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Text style={{ fontWeight: "700", color: "#fff" }}>Update</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </View>
+        )}
 
       {/* Version Footer */}
       <View style={{ alignItems: "center", paddingVertical: 16, borderTopWidth: 1, borderTopColor: "#E5E7EB" }}>
