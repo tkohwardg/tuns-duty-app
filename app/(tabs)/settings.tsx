@@ -62,6 +62,35 @@ export default function SettingsScreen() {
   const [savingUser, setSavingUser] = useState(false);
   const [userError, setUserError] = useState("");
 
+  // Master admin password gate
+  const MASTER_PASSWORD = "20231204";
+  const [showMasterPwModal, setShowMasterPwModal] = useState(false);
+  const [masterPwInput, setMasterPwInput] = useState("");
+  const [masterPwError, setMasterPwError] = useState("");
+  // pending action after master password verified
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+
+  const requireMasterPassword = (action: () => void) => {
+    setPendingAction(() => action);
+    setMasterPwInput("");
+    setMasterPwError("");
+    setShowMasterPwModal(true);
+  };
+
+  const handleMasterPwConfirm = () => {
+    if (masterPwInput === MASTER_PASSWORD) {
+      setShowMasterPwModal(false);
+      setMasterPwInput("");
+      setMasterPwError("");
+      if (pendingAction) {
+        pendingAction();
+        setPendingAction(null);
+      }
+    } else {
+      setMasterPwError("Incorrect master password. Please try again.");
+    }
+  };
+
   const loadUsers = useCallback(async () => {
     setLoadingUsers(true);
     try {
@@ -120,25 +149,27 @@ export default function SettingsScreen() {
   };
 
   const handleDeleteUser = (uid: string, name: string) => {
-    Alert.alert(
-      "Remove User",
-      `Remove "${name}" from the user list? Their duty history will remain.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Remove",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await deleteUserProfile(uid);
-              await loadUsers();
-            } catch {
-              Alert.alert("Error", "Failed to remove user.");
-            }
+    requireMasterPassword(() => {
+      Alert.alert(
+        "Remove User",
+        `Remove "${name}" from the user list? Their duty history will remain.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Remove",
+            style: "destructive",
+            onPress: async () => {
+              try {
+                await deleteUserProfile(uid);
+                await loadUsers();
+              } catch {
+                Alert.alert("Error", "Failed to remove user.");
+              }
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    });
   };
 
   // Export
@@ -525,7 +556,7 @@ export default function SettingsScreen() {
           <View className="flex-row items-center justify-between mb-3">
             <Text className="text-base font-bold text-foreground">User Management</Text>
             <TouchableOpacity
-              onPress={() => { setUserError(""); setShowAddUser(true); }}
+              onPress={() => requireMasterPassword(() => { setUserError(""); setShowAddUser(true); })}
               style={{ backgroundColor: "#3B82F6" }}
               className="px-3 py-1.5 rounded-lg"
             >
@@ -670,6 +701,90 @@ export default function SettingsScreen() {
                 ) : (
                   <Text className="text-white font-semibold">Add</Text>
                 )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Master Admin Password Modal */}
+      <Modal
+        visible={showMasterPwModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => { setShowMasterPwModal(false); setMasterPwInput(""); setMasterPwError(""); }}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "rgba(0,0,0,0.55)" }}
+        >
+          <View style={{
+            backgroundColor: "#fff",
+            borderRadius: 18,
+            padding: 24,
+            width: "85%",
+            maxWidth: 360,
+            shadowColor: "#000",
+            shadowOpacity: 0.18,
+            shadowRadius: 16,
+            elevation: 8,
+          }}>
+            <Text style={{ fontSize: 17, fontWeight: "700", color: "#11181C", marginBottom: 6 }}>
+              Master Admin Password
+            </Text>
+            <Text style={{ fontSize: 13, color: "#687076", marginBottom: 16 }}>
+              Enter the master password to continue.
+            </Text>
+            <TextInput
+              value={masterPwInput}
+              onChangeText={(t) => { setMasterPwInput(t); setMasterPwError(""); }}
+              placeholder="Master password"
+              secureTextEntry
+              returnKeyType="done"
+              onSubmitEditing={handleMasterPwConfirm}
+              autoFocus
+              style={{
+                borderWidth: 1,
+                borderColor: masterPwError ? "#EF4444" : "#E5E7EB",
+                borderRadius: 10,
+                paddingHorizontal: 14,
+                paddingVertical: 10,
+                fontSize: 15,
+                color: "#11181C",
+                backgroundColor: "#F9FAFB",
+                marginBottom: 8,
+              }}
+            />
+            {masterPwError ? (
+              <Text style={{ color: "#EF4444", fontSize: 12, marginBottom: 12 }}>{masterPwError}</Text>
+            ) : (
+              <View style={{ height: 12 }} />
+            )}
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              <TouchableOpacity
+                onPress={() => { setShowMasterPwModal(false); setMasterPwInput(""); setMasterPwError(""); setPendingAction(null); }}
+                style={{
+                  flex: 1,
+                  paddingVertical: 11,
+                  borderRadius: 10,
+                  alignItems: "center",
+                  borderWidth: 1,
+                  borderColor: "#E5E7EB",
+                }}
+              >
+                <Text style={{ fontWeight: "600", color: "#11181C" }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleMasterPwConfirm}
+                style={{
+                  flex: 1,
+                  paddingVertical: 11,
+                  borderRadius: 10,
+                  alignItems: "center",
+                  backgroundColor: "#3B82F6",
+                }}
+              >
+                <Text style={{ fontWeight: "600", color: "#fff" }}>Confirm</Text>
               </TouchableOpacity>
             </View>
           </View>
