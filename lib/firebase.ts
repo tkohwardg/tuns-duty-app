@@ -184,11 +184,19 @@ export const getAllPendingRequests = async () => {
   });
 };
 
-export const getAllApprovedRequests = async () => {
-  const q = query(
-    collection(db, COLLECTIONS.DUTY_REQUESTS),
-    where("status", "==", "approved")
-  );
+/**
+ * Fetch approved duty requests.
+ * - Admins: call without userId to get ALL approved requests.
+ * - Non-admins: pass userId to only fetch their own approved requests (Firestore-level filter).
+ */
+export const getAllApprovedRequests = async (userId?: string) => {
+  const constraints: Parameters<typeof query>[1][] = [
+    where("status", "==", "approved"),
+  ];
+  if (userId) {
+    constraints.push(where("userId", "==", userId));
+  }
+  const q = query(collection(db, COLLECTIONS.DUTY_REQUESTS), ...constraints);
   const snapshot = await getDocs(q);
   const results = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as DutyRequest));
   // Sort client-side to avoid needing composite index

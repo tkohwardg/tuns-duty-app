@@ -56,12 +56,14 @@ export default function ApprovedDutyScreen() {
 
   const loadApproved = useCallback(async () => {
     try {
-      const approved = await getAllApprovedRequests();
+      // Admins fetch all; non-admins only fetch their own (Firestore-level filter)
+      const scopedUserId = isAdmin ? undefined : (userProfile?.uid ?? undefined);
+      const approved = await getAllApprovedRequests(scopedUserId);
       setApprovedRequests(approved);
     } catch (error) {
       console.error("Error loading approved requests:", error);
     }
-  }, []);
+  }, [isAdmin, userProfile?.uid]);
 
   useEffect(() => {
     const init = async () => {

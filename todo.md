@@ -83,3 +83,5 @@
 - [x] Feature: Settings page - admin can add new users, set password and role (admin/staff)
 - [x] Feature: Master admin password gate (20231204) required before adding or deleting users
 - [x] Feature: Store master password in Firestore (not hardcoded), add change master password UI in Settings
+- [x] Fix Security: deleteUserProfile must also delete Firebase Auth account via backend Admin SDK
+- [x] Fix Security: Approved page should only show current user's own approved duties (not all users' data)

@@ -17,6 +17,7 @@ import { useAuthContext } from "@/lib/auth-context";
 import { useSettings, type DutyOption } from "@/lib/settings-context";
 import { getAllApprovedRequests, createUserAsAdmin, getAllUsers, deleteUserProfile, getMasterPassword, updateMasterPassword, type DutyRequest, type UserProfile } from "@/lib/firebase";
 import { getAuth, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
+import { trpc } from "@/lib/trpc";
 import { DatePickerCalendar } from "@/components/date-picker-calendar";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
@@ -187,6 +188,8 @@ export default function SettingsScreen() {
     }
   };
 
+  const deleteUserMutation = trpc.admin.deleteUser.useMutation();
+
   const handleDeleteUser = (uid: string, name: string) => {
     requireMasterPassword(() => {
       Alert.alert(
@@ -199,7 +202,23 @@ export default function SettingsScreen() {
             style: "destructive",
             onPress: async () => {
               try {
+                // Step 1: Delete Firestore profile
                 await deleteUserProfile(uid);
+                // Step 2: Delete Firebase Auth account via backend Admin SDK
+                try {
+                  const currentUser = getAuth().currentUser;
+                  if (currentUser) {
+                    const idToken = await currentUser.getIdToken();
+                    const result = await deleteUserMutation.mutateAsync({ idToken, targetUid: uid });
+                    if (!result.success) {
+                      // Non-fatal: profile already removed, log warning
+                      console.warn("Auth account deletion warning:", result.error);
+                    }
+                  }
+                } catch (authErr) {
+                  // Non-fatal: Firestore profile already deleted
+                  console.warn("Could not delete Firebase Auth account:", authErr);
+                }
                 await loadUsers();
               } catch {
                 Alert.alert("Error", "Failed to remove user.");
