@@ -1,0 +1,129 @@
+rules_version = '2';
+
+// ============================================================
+// TUNS Duty App — Firestore Security Rules
+// ============================================================
+// Collections:
+//   users/          — user profiles (uid, email, name, staffNumber, role)
+//   duty_requests/  — duty request records (userId, status, date, dutyType, …)
+//   app_config/     — app-level config (master password hash, settings)
+//
+// Role model:
+//   admin — role == "admin" in users/{uid}
+//   staff — role == "user"  in users/{uid}
+//   any authenticated user — request.auth != null
+// ============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ----------------------------------------------------------
+    // Helper functions
+    // ----------------------------------------------------------
+
+    // Is the caller authenticated?
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Fetch the caller's profile from Firestore to check their role.
+    // This is a server-side read and does NOT count as a billed read
+    // in the same request that triggered the rule evaluation.
+    function callerProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // Is the caller an admin?
+    function isAdmin() {
+      return isSignedIn() && callerProfile().role == "admin";
+    }
+
+    // Is the caller the owner of the document being accessed?
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // ----------------------------------------------------------
+    // users/{uid}
+    // ----------------------------------------------------------
+    // • Any authenticated user can read their OWN profile.
+    // • Admins can read ALL profiles (needed for User Management list).
+    // • Only admins can CREATE or DELETE profiles.
+    // • Users can update their OWN profile but CANNOT change their role.
+    // • Admins can update ANY profile (including role changes).
+    // ----------------------------------------------------------
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+
+      // New user creation — only admins (via secondary-app flow)
+      allow create: if isAdmin();
+
+      // Self-update: allowed but role field must not change
+      allow update: if isOwner(uid)
+                    && request.resource.data.role == resource.data.role;
+
+      // Admin update: allowed for any field including role
+      allow update: if isAdmin();
+
+      // Only admins can delete profiles
+      allow delete: if isAdmin();
+    }
+
+    // ----------------------------------------------------------
+    // duty_requests/{requestId}
+    // ----------------------------------------------------------
+    // • Authenticated users can CREATE requests for themselves only.
+    // • Users can READ their own requests.
+    // • Admins can READ all requests.
+    // • Users can UPDATE (cancel) their own PENDING requests only.
+    // • Admins can UPDATE status of any request (approve / reject).
+    // • Nobody can DELETE requests (soft-delete via status change).
+    // ----------------------------------------------------------
+    match /duty_requests/{requestId} {
+
+      // Read: own record OR admin
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+
+      // Create: must be authenticated, userId must match caller
+      allow create: if isSignedIn()
+                    && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.status == "pending"
+                    && request.resource.data.keys().hasAll([
+                         "userId", "userName", "userEmail",
+                         "date", "dutyType", "status",
+                         "createdAt", "updatedAt"
+                       ]);
+
+      // Staff can only cancel their own PENDING requests
+      allow update: if isOwner(resource.data.userId)
+                    && resource.data.status == "pending"
+                    && request.resource.data.status == "cancelled"
+                    && request.resource.data.userId == resource.data.userId;
+
+      // Admins can change status of any request (approve / reject / cancel)
+      allow update: if isAdmin()
+                    && request.resource.data.userId == resource.data.userId;
+
+      // No hard deletes
+      allow delete: if false;
+    }
+
+    // ----------------------------------------------------------
+    // app_config/{docId}
+    // ----------------------------------------------------------
+    // • Only admins can read or write app-level config
+    //   (includes the master password stored in app_config/master).
+    // • No public access whatsoever.
+    // ----------------------------------------------------------
+    match /app_config/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ----------------------------------------------------------
+    // Catch-all: deny everything else
+    // ----------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
