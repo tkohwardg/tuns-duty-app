@@ -4,9 +4,11 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { ThemeProvider } from "@/lib/theme-provider";
 import { AuthProvider, useAuthContext } from "@/lib/auth-context";
 import { SettingsProvider } from "@/lib/settings-context";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import * as SplashScreen from "expo-splash-screen";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { trpc, createTRPCClient } from "@/lib/trpc";
 import "../global.css";
 
 // Keep splash screen visible while fonts load
@@ -38,6 +40,10 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 export default function RootLayout() {
   const fontsLoaded = true; // No custom fonts needed - using Unicode characters
 
+  // Create stable QueryClient and tRPC client instances
+  const [queryClient] = useState(() => new QueryClient());
+  const [trpcClient] = useState(() => createTRPCClient());
+
   useEffect(() => {
     if (fontsLoaded) {
       SplashScreen.hideAsync();
@@ -54,19 +60,23 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemeProvider>
-        <AuthProvider>
-          <SettingsProvider>
-            <StatusBar style="dark" />
-            <AuthGate>
-              <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="login" />
-                <Stack.Screen name="(tabs)" />
-              </Stack>
-            </AuthGate>
-          </SettingsProvider>
-        </AuthProvider>
-      </ThemeProvider>
+      <trpc.Provider client={trpcClient} queryClient={queryClient}>
+        <QueryClientProvider client={queryClient}>
+          <ThemeProvider>
+            <AuthProvider>
+              <SettingsProvider>
+                <StatusBar style="dark" />
+                <AuthGate>
+                  <Stack screenOptions={{ headerShown: false }}>
+                    <Stack.Screen name="login" />
+                    <Stack.Screen name="(tabs)" />
+                  </Stack>
+                </AuthGate>
+              </SettingsProvider>
+            </AuthProvider>
+          </ThemeProvider>
+        </QueryClientProvider>
+      </trpc.Provider>
     </GestureHandlerRootView>
   );
 }
