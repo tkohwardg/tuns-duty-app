@@ -53,7 +53,11 @@ service cloud.firestore {
     // • Admins can update ANY profile (including role changes).
     // ----------------------------------------------------------
     match /users/{uid} {
-      allow read: if isOwner(uid) || isAdmin();
+      // Allow any signed-in user to read user profiles.
+      // This is required so callerProfile() inside isAdmin() can resolve
+      // without a circular dependency (isAdmin needs to read users, which
+      // previously required isAdmin — causing delete/create to always fail).
+      allow read: if isSignedIn();
 
       // New user creation — only admins (via secondary-app flow)
       allow create: if isAdmin();
