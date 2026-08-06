@@ -40,7 +40,7 @@ function parseDateStr(dateStr: string): Date {
 }
 
 export default function ApprovedDutyScreen() {
-  const { isAdmin, userProfile } = useAuthContext();
+  const { isAdmin, userProfile, user } = useAuthContext();
   const colors = useColors();
   const { settings } = useSettings();
   const navigation = useNavigation();
@@ -56,19 +56,18 @@ export default function ApprovedDutyScreen() {
 
   const loadApproved = useCallback(async () => {
     try {
-      // Admins fetch all; non-admins fetch their own using their uid
-      // Wait until userProfile is loaded before querying for non-admins
-      if (!isAdmin && !userProfile?.uid) {
-        // userProfile not yet loaded — skip fetch, will retry when it loads
+      // Admins fetch all; non-admins fetch their own using Firebase Auth uid
+      // Use user.uid (always available once logged in) instead of userProfile.uid
+      if (!isAdmin && !user?.uid) {
         return;
       }
-      const scopedUserId = isAdmin ? undefined : userProfile!.uid;
+      const scopedUserId = isAdmin ? undefined : user!.uid;
       const approved = await getAllApprovedRequests(scopedUserId);
       setApprovedRequests(approved);
     } catch (error) {
       console.error("Error loading approved requests:", error);
     }
-  }, [isAdmin, userProfile]);
+  }, [isAdmin, user]);
 
   useEffect(() => {
     const init = async () => {
