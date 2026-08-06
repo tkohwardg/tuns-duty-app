@@ -277,17 +277,20 @@ export default function SettingsScreen() {
   // Duty Option handlers
   const handleAddDutyOption = async () => {
     if (!newDutyLabel.trim()) {
-      Alert.alert("Error", "Duty label cannot be empty.");
+      if (Platform.OS === "web") window.alert("Error: Duty label cannot be empty.");
+      else Alert.alert("Error", "Duty label cannot be empty.");
       return;
     }
     const hours = parseFloat(newDutyHours);
     if (isNaN(hours) || hours <= 0) {
-      Alert.alert("Error", "Please enter a valid number of hours.");
+      if (Platform.OS === "web") window.alert("Error: Please enter a valid number of hours.");
+      else Alert.alert("Error", "Please enter a valid number of hours.");
       return;
     }
     // Check duplicate
     if (settings.dutyOptions.some((o) => o.label === newDutyLabel.trim())) {
-      Alert.alert("Error", "A duty option with this label already exists.");
+      if (Platform.OS === "web") window.alert("Error: A duty option with this label already exists.");
+      else Alert.alert("Error", "A duty option with this label already exists.");
       return;
     }
     setSavingDuty(true);
@@ -301,9 +304,11 @@ export default function SettingsScreen() {
       setNewDutyHours("");
       setNewDutyColor("#6B7280");
       setShowAddDuty(false);
-      Alert.alert("Success", "Duty option added.");
+      if (Platform.OS === "web") window.alert("Duty option added successfully.");
+      else Alert.alert("Success", "Duty option added.");
     } catch (error) {
-      Alert.alert("Error", "Failed to add duty option.");
+      if (Platform.OS === "web") window.alert("Error: Failed to add duty option.");
+      else Alert.alert("Error", "Failed to add duty option.");
     } finally {
       setSavingDuty(false);
     }
