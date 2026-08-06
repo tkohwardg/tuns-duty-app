@@ -191,43 +191,43 @@ export default function SettingsScreen() {
   const deleteUserMutation = trpc.admin.deleteUser.useMutation();
 
   const handleDeleteUser = (uid: string, name: string) => {
-    requireMasterPassword(() => {
-      Alert.alert(
-        "Remove User",
-        `Remove "${name}" from the user list? Their duty history will remain.`,
-        [
-          { text: "Cancel", style: "cancel" },
-          {
-            text: "Remove",
-            style: "destructive",
-            onPress: async () => {
+    Alert.alert(
+      "Remove User",
+      `Remove "${name}" from the user list? Their duty history will remain.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              // Step 1: Delete Firestore profile
+              await deleteUserProfile(uid);
+              // Step 2: Delete Firebase Auth account via backend Admin SDK
               try {
-                // Step 1: Delete Firestore profile
-                await deleteUserProfile(uid);
-                // Step 2: Delete Firebase Auth account via backend Admin SDK
-                try {
-                  const currentUser = getAuth().currentUser;
-                  if (currentUser) {
-                    const idToken = await currentUser.getIdToken();
-                    const result = await deleteUserMutation.mutateAsync({ idToken, targetUid: uid });
-                    if (!result.success) {
-                      // Non-fatal: profile already removed, log warning
-                      console.warn("Auth account deletion warning:", result.error);
-                    }
+                const currentUser = getAuth().currentUser;
+                if (currentUser) {
+                  const idToken = await currentUser.getIdToken();
+                  const result = await deleteUserMutation.mutateAsync({ idToken, targetUid: uid });
+                  if (!result.success) {
+                    // Non-fatal: profile already removed, log warning
+                    console.warn("Auth account deletion warning:", result.error);
                   }
-                } catch (authErr) {
-                  // Non-fatal: Firestore profile already deleted
-                  console.warn("Could not delete Firebase Auth account:", authErr);
                 }
-                await loadUsers();
-              } catch {
-                Alert.alert("Error", "Failed to remove user.");
+              } catch (authErr) {
+                // Non-fatal: Firestore profile already deleted
+                console.warn("Could not delete Firebase Auth account:", authErr);
               }
-            },
+              await loadUsers();
+              Alert.alert("Success", "User removed successfully.");
+            } catch (error) {
+              console.error("Delete user error:", error);
+              Alert.alert("Error", "Failed to remove user.");
+            }
           },
-        ]
-      );
-    });
+        },
+      ]
+    );
   };
 
   // Export
@@ -617,7 +617,7 @@ export default function SettingsScreen() {
             <View style={{ flexDirection: "row", gap: 8 }}>
               {userListUnlocked && (
                 <TouchableOpacity
-                  onPress={() => requireMasterPassword(() => { setUserError(""); setShowAddUser(true); })}
+                  onPress={() => { setUserError(""); setShowAddUser(true); }}
                   style={{ backgroundColor: "#3B82F6", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 }}
                 >
                   <Text style={{ color: "#fff", fontSize: 13, fontWeight: "600" }}>+ Add User</Text>
