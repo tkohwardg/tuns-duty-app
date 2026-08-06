@@ -31,7 +31,7 @@ function parseDateStr(dateStr: string): Date {
 }
 
 export default function SettingsScreen() {
-  const { isAdmin, userProfile } = useAuthContext();
+  const { isAdmin, userProfile, user } = useAuthContext();
   const { settings, updateWardName, addDutyOption, removeDutyOption } = useSettings();
 
   // Ward Name
@@ -191,43 +191,58 @@ export default function SettingsScreen() {
   const deleteUserMutation = trpc.admin.deleteUser.useMutation();
 
   const handleDeleteUser = (uid: string, name: string) => {
-    Alert.alert(
-      "Remove User",
-      `Remove "${name}" from the user list? Their duty history will remain.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Remove",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              // Step 1: Delete Firestore profile
-              await deleteUserProfile(uid);
-              // Step 2: Delete Firebase Auth account via backend Admin SDK
-              try {
-                const currentUser = getAuth().currentUser;
-                if (currentUser) {
-                  const idToken = await currentUser.getIdToken();
-                  const result = await deleteUserMutation.mutateAsync({ idToken, targetUid: uid });
-                  if (!result.success) {
-                    // Non-fatal: profile already removed, log warning
-                    console.warn("Auth account deletion warning:", result.error);
-                  }
-                }
-              } catch (authErr) {
-                // Non-fatal: Firestore profile already deleted
-                console.warn("Could not delete Firebase Auth account:", authErr);
-              }
-              await loadUsers();
-              Alert.alert("Success", "User removed successfully.");
-            } catch (error) {
-              console.error("Delete user error:", error);
-              Alert.alert("Error", "Failed to remove user.");
+    // Use window.confirm on web, Alert on native
+    const confirmed = Platform.OS === "web"
+      ? window.confirm(`Remove "${name}" from the user list? Their duty history will remain.`)
+      : false;
+
+    if (Platform.OS === "web" && !confirmed) return;
+
+    const doDelete = async () => {
+      try {
+        // Step 1: Delete Firestore profile
+        await deleteUserProfile(uid);
+        // Step 2: Delete Firebase Auth account via backend Admin SDK
+        try {
+          const currentUser = getAuth().currentUser;
+          if (currentUser) {
+            const idToken = await currentUser.getIdToken();
+            const result = await deleteUserMutation.mutateAsync({ idToken, targetUid: uid });
+            if (!result.success) {
+              console.warn("Auth account deletion warning:", result.error);
             }
-          },
-        },
-      ]
-    );
+          }
+        } catch (authErr) {
+          console.warn("Could not delete Firebase Auth account:", authErr);
+        }
+        await loadUsers();
+        if (Platform.OS === "web") {
+          window.alert("User removed successfully.");
+        } else {
+          Alert.alert("Success", "User removed successfully.");
+        }
+      } catch (error) {
+        console.error("Delete user error:", error);
+        if (Platform.OS === "web") {
+          window.alert("Failed to remove user. Please check Firestore rules are deployed.");
+        } else {
+          Alert.alert("Error", "Failed to remove user.");
+        }
+      }
+    };
+
+    if (Platform.OS === "web") {
+      doDelete();
+    } else {
+      Alert.alert(
+        "Remove User",
+        `Remove "${name}" from the user list? Their duty history will remain.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Remove", style: "destructive", onPress: doDelete },
+        ]
+      );
+    }
   };
 
   // Export
@@ -706,7 +721,7 @@ export default function SettingsScreen() {
                   ) : null}
                 </View>
                 {/* Delete button - don't allow deleting yourself */}
-                {u.uid !== userProfile?.uid && (
+                {u.uid !== (user?.uid ?? userProfile?.uid) && (
                   <TouchableOpacity
                     onPress={() => handleDeleteUser(u.uid, u.name || u.email)}
                     style={{ padding: 8 }}
