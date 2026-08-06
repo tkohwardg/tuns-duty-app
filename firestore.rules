@@ -81,8 +81,9 @@ service cloud.firestore {
     // ----------------------------------------------------------
     match /duty_requests/{requestId} {
 
-      // Read: own record OR admin
-      allow read: if isOwner(resource.data.userId) || isAdmin();
+      // Read: any authenticated user can read all duty requests
+      // (needed for Approved Duty page where all staff see everyone's approved duties)
+      allow read: if isSignedIn();
 
       // Create: must be authenticated, userId must match caller
       allow create: if isSignedIn()
