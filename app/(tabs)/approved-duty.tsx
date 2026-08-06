@@ -56,18 +56,13 @@ export default function ApprovedDutyScreen() {
 
   const loadApproved = useCallback(async () => {
     try {
-      // Admins fetch all; non-admins fetch their own using Firebase Auth uid
-      // Use user.uid (always available once logged in) instead of userProfile.uid
-      if (!isAdmin && !user?.uid) {
-        return;
-      }
-      const scopedUserId = isAdmin ? undefined : user!.uid;
-      const approved = await getAllApprovedRequests(scopedUserId);
+      // All users can see all approved duties regardless of role
+      const approved = await getAllApprovedRequests();
       setApprovedRequests(approved);
     } catch (error) {
       console.error("Error loading approved requests:", error);
     }
-  }, [isAdmin, user]);
+  }, []);
 
   useEffect(() => {
     const init = async () => {
