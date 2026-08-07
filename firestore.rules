@@ -125,6 +125,17 @@ service cloud.firestore {
     }
 
     // ----------------------------------------------------------
+    // settings/{docId}
+    // ----------------------------------------------------------
+    // • Any authenticated user can READ app settings (ward name, duty options).
+    // • Only admins can WRITE (update duty options, ward name).
+    // ----------------------------------------------------------
+    match /settings/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // ----------------------------------------------------------
     // Catch-all: deny everything else
     // ----------------------------------------------------------
     match /{document=**} {
