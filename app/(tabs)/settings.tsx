@@ -315,24 +315,28 @@ export default function SettingsScreen() {
   };
 
   const handleRemoveDutyOption = (label: string) => {
-    Alert.alert(
-      "Confirm Delete",
-      `Remove duty option "${label}"? This won't affect existing requests.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await removeDutyOption(label);
-            } catch (error) {
-              Alert.alert("Error", "Failed to remove duty option.");
-            }
-          },
-        },
-      ]
-    );
+    const doRemove = async () => {
+      try {
+        await removeDutyOption(label);
+      } catch (error) {
+        if (Platform.OS === "web") window.alert("Error: Failed to remove duty option.");
+        else Alert.alert("Error", "Failed to remove duty option.");
+      }
+    };
+    if (Platform.OS === "web") {
+      if (window.confirm(`Remove duty option "${label}"? This won't affect existing requests.`)) {
+        doRemove();
+      }
+    } else {
+      Alert.alert(
+        "Confirm Delete",
+        `Remove duty option "${label}"? This won't affect existing requests.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Delete", style: "destructive", onPress: doRemove },
+        ]
+      );
+    }
   };
 
   // Password handlers
