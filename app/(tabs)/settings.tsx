@@ -31,7 +31,7 @@ function parseDateStr(dateStr: string): Date {
 }
 
 export default function SettingsScreen() {
-  const { isAdmin, userProfile, user } = useAuthContext();
+  const { isAdmin, userProfile, user, logout } = useAuthContext();
   const { settings, updateWardName, addDutyOption, removeDutyOption } = useSettings();
 
   // Ward Name
@@ -490,8 +490,60 @@ export default function SettingsScreen() {
         {/* Header */}
         <View className="items-center py-4 border-b border-border">
           <Text className="text-xl font-bold text-foreground">Settings</Text>
-          <Text className="text-sm text-muted">Admin Only</Text>
         </View>
+
+        {/* User Profile Card - shown to all users */}
+        <View style={{
+          marginHorizontal: 16, marginTop: 16, padding: 16,
+          backgroundColor: "#F5F5F5", borderRadius: 16,
+          flexDirection: "row", alignItems: "center",
+          borderWidth: 1, borderColor: "#E5E7EB",
+        }}>
+          <View style={{
+            width: 48, height: 48, borderRadius: 24,
+            backgroundColor: "#D1D5DB", alignItems: "center", justifyContent: "center",
+            marginRight: 12,
+          }}>
+            <Text style={{ fontSize: 22 }}>{"👤"}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 15, fontWeight: "700", color: "#11181C" }}>
+              {userProfile?.name || user?.email || "—"}
+            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 3 }}>
+              <View style={{
+                backgroundColor: isAdmin ? "#FEF3C7" : "#EFF6FF",
+                borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2,
+              }}>
+                <Text style={{ fontSize: 11, fontWeight: "700", color: isAdmin ? "#D97706" : "#3B82F6" }}>
+                  {isAdmin ? "Admin" : "Staff"}
+                </Text>
+              </View>
+              {userProfile?.staffNumber ? (
+                <Text style={{ fontSize: 12, color: "#687076" }}>#{userProfile.staffNumber}</Text>
+              ) : null}
+            </View>
+          </View>
+          <TouchableOpacity
+            onPress={async () => {
+              const doLogout = async () => { try { await logout(); } catch {} };
+              if (Platform.OS === "web") {
+                if (window.confirm("Are you sure you want to logout?")) doLogout();
+              } else {
+                Alert.alert("Logout", "Are you sure you want to logout?", [
+                  { text: "Cancel", style: "cancel" },
+                  { text: "Logout", style: "destructive", onPress: doLogout },
+                ]);
+              }
+            }}
+            style={{ backgroundColor: "#EF4444", borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8 }}
+          >
+            <Text style={{ color: "#fff", fontWeight: "700", fontSize: 13 }}>Logout</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Admin-only sections */}
+        {isAdmin && <>
 
         {/* Section 1: Ward Name */}
         <View className="mx-4 mt-4 p-4 bg-surface rounded-xl border border-border">
@@ -744,7 +796,6 @@ export default function SettingsScreen() {
         </View>
 
         {/* Section 6: Change Master Password (admin only) */}
-        {isAdmin && (
           <View className="mx-4 mt-4 mb-2 p-4 bg-surface rounded-xl border border-border">
             <Text className="text-base font-bold text-foreground mb-3">Master Password</Text>
             {!showChangeMasterPw ? (
@@ -842,7 +893,9 @@ export default function SettingsScreen() {
               </View>
             )}
           </View>
-        )}
+
+        </>}
+        {/* End admin-only sections */}
 
       {/* Version Footer */}
       <View style={{ alignItems: "center", paddingVertical: 16, borderTopWidth: 1, borderTopColor: "#E5E7EB" }}>
