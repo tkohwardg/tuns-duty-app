@@ -281,13 +281,6 @@ export default function RequestDutyScreen() {
         </TouchableOpacity>
 
         {/* Log out Button */}
-        <TouchableOpacity
-          onPress={handleLogout}
-          className="mt-4 rounded-xl py-3 items-center"
-          style={{ backgroundColor: "#F44336" }}
-        >
-          <Text className="text-white text-sm font-semibold">Log out</Text>
-        </TouchableOpacity>
       </ScrollView>
 
       {/* Date Picker Calendar Modal */}
