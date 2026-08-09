@@ -75,7 +75,6 @@ export default function TabLayout() {
         options={{
           title: "Settings",
           tabBarIcon: ({ color }) => <TabIcon label="☰" color={color} />,
-          href: isAdmin ? undefined : null,
         }}
       />
     </Tabs>
