@@ -70,11 +70,22 @@ export default function TabLayout() {
           href: isAdmin ? undefined : null,
         }}
       />
+      {/* Admin settings page - only visible to admins */}
       <Tabs.Screen
         name="settings"
         options={{
           title: "Settings",
           tabBarIcon: ({ color }) => <TabIcon label="☰" color={color} />,
+          href: isAdmin ? undefined : null,
+        }}
+      />
+      {/* Staff settings page - only visible to non-admins */}
+      <Tabs.Screen
+        name="staff-settings"
+        options={{
+          title: "Settings",
+          tabBarIcon: ({ color }) => <TabIcon label="☰" color={color} />,
+          href: isAdmin ? null : undefined,
         }}
       />
     </Tabs>
