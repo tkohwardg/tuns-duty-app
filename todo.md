@@ -86,3 +86,5 @@
 - [x] Fix Security: deleteUserProfile must also delete Firebase Auth account via backend Admin SDK
 - [x] Fix Security: Approved page should only show current user's own approved duties (not all users' data)
 - [x] Simplify approved-duties export by removing Email, Status, and Requested At columns
+- [x] Export approved duties with total approved hours for each employee
+- [x] Add one-tap monthly period selection for approved-duties export

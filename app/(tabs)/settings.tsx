@@ -21,6 +21,7 @@ import { trpc } from "@/lib/trpc";
 import { DatePickerCalendar } from "@/components/date-picker-calendar";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
+import { buildApprovedDutiesCsv } from "@/lib/approved-duties-export";
 
 function parseDateStr(dateStr: string): Date {
   const parts = dateStr.split("/");
@@ -28,6 +29,10 @@ function parseDateStr(dateStr: string): Date {
   const month = parseInt(parts[1], 10) - 1;
   const year = parseInt(parts[2], 10);
   return new Date(year, month, day);
+}
+
+function formatDateStr(date: Date): string {
+  return `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
 }
 
 export default function SettingsScreen() {
@@ -251,6 +256,10 @@ export default function SettingsScreen() {
   const [exporting, setExporting] = useState(false);
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+  const [exportMonth, setExportMonth] = useState(() => {
+    const today = new Date();
+    return new Date(today.getFullYear(), today.getMonth(), 1);
+  });
 
   const COLOR_OPTIONS = [
     "#EF4444", "#F97316", "#F59E0B", "#22C55E", "#86EFAC",
@@ -382,13 +391,15 @@ export default function SettingsScreen() {
 
   // Export handlers
 
-  const handleExport = async () => {
-    if (!exportStartDate || !exportEndDate) {
+  const handleExport = async (period?: { startDate: string; endDate: string; fileSuffix: string }) => {
+    const startDate = period?.startDate ?? exportStartDate;
+    const endDate = period?.endDate ?? exportEndDate;
+    if (!startDate || !endDate) {
       Alert.alert("Error", "Please select both start and end dates.");
       return;
     }
-    const start = parseDateStr(exportStartDate);
-    const end = parseDateStr(exportEndDate);
+    const start = parseDateStr(startDate);
+    const end = parseDateStr(endDate);
     if (start > end) {
       Alert.alert("Error", "Start date must be before end date.");
       return;
@@ -419,15 +430,10 @@ export default function SettingsScreen() {
         return;
       }
 
-      // Generate CSV content
-      const csvHeader = "Date,Staff Name,Duty Type\n";
-      const csvRows = filtered.map((r) => {
-        return `${r.date},"${r.userName}",${r.dutyType}`;
-      }).join("\n");
-      const csvContent = csvHeader + csvRows;
+      const csvContent = buildApprovedDutiesCsv(filtered, settings.dutyOptions);
 
       // Generate file name
-      const fileName = `approved_duties_${exportStartDate.replace(/\//g, "-")}_to_${exportEndDate.replace(/\//g, "-")}.csv`;
+      const fileName = `approved_duties_${(period?.fileSuffix ?? `${startDate.replace(/\//g, "-")}_to_${endDate.replace(/\//g, "-")}`)}.csv`;
 
       if (Platform.OS === "web") {
         // Web: trigger browser download
@@ -464,6 +470,17 @@ export default function SettingsScreen() {
     } finally {
       setExporting(false);
     }
+  };
+
+  const handleMonthlyExport = () => {
+    const start = new Date(exportMonth.getFullYear(), exportMonth.getMonth(), 1);
+    const end = new Date(exportMonth.getFullYear(), exportMonth.getMonth() + 1, 0);
+    const fileSuffix = `${exportMonth.getFullYear()}-${String(exportMonth.getMonth() + 1).padStart(2, "0")}`;
+    handleExport({ startDate: formatDateStr(start), endDate: formatDateStr(end), fileSuffix });
+  };
+
+  const changeExportMonth = (offset: number) => {
+    setExportMonth((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1));
   };
 
   if (!isAdmin) {
@@ -650,6 +667,41 @@ export default function SettingsScreen() {
           <Text className="text-base font-bold text-foreground mb-3">
             Export Approved Duties
           </Text>
+          <Text className="text-sm font-semibold text-foreground mb-2">Monthly Export</Text>
+          <View className="flex-row items-center gap-2 mb-2">
+            <TouchableOpacity
+              onPress={() => changeExportMonth(-1)}
+              style={{ backgroundColor: "#E5E7EB" }}
+              className="w-10 py-2 rounded-lg items-center"
+            >
+              <Text className="text-foreground font-bold">◀</Text>
+            </TouchableOpacity>
+            <View className="flex-1 border border-border rounded-lg px-3 py-2 bg-background items-center">
+              <Text className="text-sm text-foreground font-semibold">
+                {exportMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => changeExportMonth(1)}
+              style={{ backgroundColor: "#E5E7EB" }}
+              className="w-10 py-2 rounded-lg items-center"
+            >
+              <Text className="text-foreground font-bold">▶</Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity
+            onPress={handleMonthlyExport}
+            disabled={exporting}
+            style={{ backgroundColor: "#4CAF50" }}
+            className="py-2.5 rounded-lg items-center mb-4"
+          >
+            {exporting ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text className="text-white font-semibold">Export Selected Month</Text>
+            )}
+          </TouchableOpacity>
+          <Text className="text-sm font-semibold text-foreground mb-2">Custom Date Range</Text>
           <View className="flex-row items-center gap-2 mb-2">
             <TouchableOpacity
               onPress={() => setShowStartDatePicker(true)}
@@ -670,7 +722,7 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           </View>
           <TouchableOpacity
-            onPress={handleExport}
+            onPress={() => handleExport()}
             disabled={exporting}
             style={{ backgroundColor: "#6366F1" }}
             className="py-2.5 rounded-lg items-center mt-2"
