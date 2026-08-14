@@ -10,6 +10,11 @@ export interface DutyHoursOption {
   hours: number;
 }
 
+export interface ApprovedDutiesExportMetadata {
+  wardName: string;
+  exportPeriod: string;
+}
+
 function escapeCsvValue(value: string): string {
   return `"${value.replace(/"/g, '""')}"`;
 }
@@ -20,6 +25,7 @@ function escapeCsvValue(value: string): string {
 export function buildApprovedDutiesCsv(
   duties: ApprovedDutyExportRow[],
   dutyOptions: DutyHoursOption[],
+  metadata: ApprovedDutiesExportMetadata,
 ): string {
   const detailRows = duties
     .map((duty) => `${duty.date},${escapeCsvValue(duty.userName)},${escapeCsvValue(duty.dutyType)}`)
@@ -37,14 +43,19 @@ export function buildApprovedDutiesCsv(
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((staff) => `${escapeCsvValue(staff.name)},${staff.hours}`)
     .join("\n");
+  const allStaffTotalHours = Array.from(staffTotals.values())
+    .reduce((total, staff) => total + staff.hours, 0);
 
   return [
-    "Approved Duties",
+    `${escapeCsvValue(metadata.wardName)} Approved Duties`,
+    `Export Period,${escapeCsvValue(metadata.exportPeriod)}`,
+    "",
     "Date,Staff Name,Duty Type",
     detailRows,
     "",
     "Employee Total Hours",
     "Staff Name,Total Approved Hours",
     totalRows,
+    `All Staff Total Approved Hours,${allStaffTotalHours}`,
   ].join("\n");
 }

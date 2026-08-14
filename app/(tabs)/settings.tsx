@@ -391,7 +391,7 @@ export default function SettingsScreen() {
 
   // Export handlers
 
-  const handleExport = async (period?: { startDate: string; endDate: string; fileSuffix: string }) => {
+  const handleExport = async (period?: { startDate: string; endDate: string; fileSuffix: string; title: string }) => {
     const startDate = period?.startDate ?? exportStartDate;
     const endDate = period?.endDate ?? exportEndDate;
     if (!startDate || !endDate) {
@@ -430,7 +430,10 @@ export default function SettingsScreen() {
         return;
       }
 
-      const csvContent = buildApprovedDutiesCsv(filtered, settings.dutyOptions);
+      const csvContent = buildApprovedDutiesCsv(filtered, settings.dutyOptions, {
+        wardName: settings.wardName,
+        exportPeriod: period?.title ?? `${startDate} to ${endDate}`,
+      });
 
       // Generate file name
       const fileName = `approved_duties_${(period?.fileSuffix ?? `${startDate.replace(/\//g, "-")}_to_${endDate.replace(/\//g, "-")}`)}.csv`;
@@ -476,7 +479,8 @@ export default function SettingsScreen() {
     const start = new Date(exportMonth.getFullYear(), exportMonth.getMonth(), 1);
     const end = new Date(exportMonth.getFullYear(), exportMonth.getMonth() + 1, 0);
     const fileSuffix = `${exportMonth.getFullYear()}-${String(exportMonth.getMonth() + 1).padStart(2, "0")}`;
-    handleExport({ startDate: formatDateStr(start), endDate: formatDateStr(end), fileSuffix });
+    const title = exportMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+    handleExport({ startDate: formatDateStr(start), endDate: formatDateStr(end), fileSuffix, title });
   };
 
   const changeExportMonth = (offset: number) => {

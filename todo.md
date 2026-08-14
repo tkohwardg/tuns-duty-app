@@ -88,3 +88,5 @@
 - [x] Simplify approved-duties export by removing Email, Status, and Requested At columns
 - [x] Export approved duties with total approved hours for each employee
 - [x] Add one-tap monthly period selection for approved-duties export
+- [x] Include ward name and export-month heading in approved-duties CSV files
+- [x] Include an all-staff total approved-hours figure in the monthly export summary
