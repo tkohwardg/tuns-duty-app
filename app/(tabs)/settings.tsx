@@ -420,12 +420,9 @@ export default function SettingsScreen() {
       }
 
       // Generate CSV content
-      const csvHeader = "Date,Staff Name,Email,Duty Type,Status,Requested At\n";
+      const csvHeader = "Date,Staff Name,Duty Type\n";
       const csvRows = filtered.map((r) => {
-        const createdAt = r.createdAt?.toDate?.()
-          ? r.createdAt.toDate().toLocaleString()
-          : "N/A";
-        return `${r.date},"${r.userName}",${r.userEmail},${r.dutyType},${r.status},${createdAt}`;
+        return `${r.date},"${r.userName}",${r.dutyType}`;
       }).join("\n");
       const csvContent = csvHeader + csvRows;
 
