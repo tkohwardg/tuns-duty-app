@@ -21,7 +21,7 @@ import { trpc } from "@/lib/trpc";
 import { DatePickerCalendar } from "@/components/date-picker-calendar";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
-import { buildApprovedDutiesCsv } from "@/lib/approved-duties-export";
+import { buildApprovedDutiesWorkbook } from "@/lib/approved-duties-export";
 
 function parseDateStr(dateStr: string): Date {
   const parts = dateStr.split("/");
@@ -430,17 +430,24 @@ export default function SettingsScreen() {
         return;
       }
 
-      const csvContent = buildApprovedDutiesCsv(filtered, settings.dutyOptions, {
+      const XLSX = await import("xlsx");
+      const workbook = buildApprovedDutiesWorkbook(XLSX, filtered, settings.dutyOptions, {
         wardName: settings.wardName,
         exportPeriod: period?.title ?? `${startDate} to ${endDate}`,
       });
+      const workbookBase64 = XLSX.write(workbook, { bookType: "xlsx", type: "base64" });
 
       // Generate file name
-      const fileName = `approved_duties_${(period?.fileSuffix ?? `${startDate.replace(/\//g, "-")}_to_${endDate.replace(/\//g, "-")}`)}.csv`;
+      const fileName = `approved_duties_${(period?.fileSuffix ?? `${startDate.replace(/\//g, "-")}_to_${endDate.replace(/\//g, "-")}`)}.xlsx`;
 
       if (Platform.OS === "web") {
         // Web: trigger browser download
-        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const binary = atob(workbookBase64);
+        const bytes = new Uint8Array(binary.length);
+        for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+        const blob = new Blob([bytes], {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
@@ -449,19 +456,19 @@ export default function SettingsScreen() {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-        Alert.alert("Success", `CSV file downloaded: ${fileName}`);
+        Alert.alert("Success", `Excel file downloaded: ${fileName}`);
       } else {
         // iOS / Android: save to app documents then share
         const filePath = `${FileSystem.documentDirectory}${fileName}`;
-        await FileSystem.writeAsStringAsync(filePath, csvContent, {
-          encoding: FileSystem.EncodingType.UTF8,
+        await FileSystem.writeAsStringAsync(filePath, workbookBase64, {
+          encoding: FileSystem.EncodingType.Base64,
         });
         // Share via system share sheet (allows saving to Files, Google Drive, etc.)
         if (await Sharing.isAvailableAsync()) {
           await Sharing.shareAsync(filePath, {
-            mimeType: "text/csv",
-            dialogTitle: "Save or Share Approved Duties CSV",
-            UTI: "public.comma-separated-values-text",
+            mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            dialogTitle: "Save or Share Approved Duties Excel File",
+            UTI: "org.openxmlformats.spreadsheetml.sheet",
           });
         } else {
           Alert.alert("Saved", `File saved to app documents:\n${fileName}`);

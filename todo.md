@@ -90,3 +90,6 @@
 - [x] Add one-tap monthly period selection for approved-duties export
 - [x] Include ward name and export-month heading in approved-duties CSV files
 - [x] Include an all-staff total approved-hours figure in the monthly export summary
+- [x] Replace approved-duties CSV downloads with formatted .xlsx Excel workbooks
+- [x] Separate duty details and selected-period employee-hour totals into workbook sheets
+- [x] Correct the export header row format identified in the provided July sample

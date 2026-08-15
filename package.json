@@ -79,6 +79,7 @@
     "superjson": "^1.13.3",
     "tailwind-merge": "^2.6.0",
     "trpc-playground": "^1.0.4",
+    "xlsx": "^0.18.5",
     "zod": "^4.2.1"
   },
   "devDependencies": {

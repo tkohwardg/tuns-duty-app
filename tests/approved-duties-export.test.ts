@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { buildApprovedDutiesCsv } from "../lib/approved-duties-export";
+import * as XLSX from "xlsx";
+import { buildApprovedDutiesWorkbook } from "../lib/approved-duties-export";
 
-describe("buildApprovedDutiesCsv", () => {
-  it("exports only duty details and calculates each employee's total approved hours", () => {
-    const csv = buildApprovedDutiesCsv(
+describe("buildApprovedDutiesWorkbook", () => {
+  it("creates separate duty and selected-period total-hours sheets", () => {
+    const workbook = buildApprovedDutiesWorkbook(
+      XLSX,
       [
         { userId: "staff-2", userName: "Bob", date: "2/8/2026", dutyType: "0900-1300" },
         { userId: "staff-1", userName: "Alice", date: "1/8/2026", dutyType: "A" },
@@ -17,26 +19,31 @@ describe("buildApprovedDutiesCsv", () => {
       { wardName: "Ward 8S", exportPeriod: "August 2026" },
     );
 
-    expect(csv).toContain('"Ward 8S" Approved Duties');
-    expect(csv).toContain('Export Period,"August 2026"');
-    expect(csv).toContain("Date,Staff Name,Duty Type");
-    expect(csv).toContain('1/8/2026,"Alice","A"');
-    expect(csv).toContain("Employee Total Hours\nStaff Name,Total Approved Hours");
-    expect(csv).toContain('"Alice",14');
-    expect(csv).toContain('"Bob",4');
-    expect(csv).toContain("All Staff Total Approved Hours,18");
-    expect(csv).not.toContain("Requested At");
-    expect(csv).not.toContain("Email");
-    expect(csv).not.toContain("Status");
+    expect(workbook.SheetNames).toEqual(["Approved Duties", "Employee Total Hours"]);
+    const duties = XLSX.utils.sheet_to_json(workbook.Sheets["Approved Duties"], { header: 1 }) as unknown[][];
+    const totals = XLSX.utils.sheet_to_json(workbook.Sheets["Employee Total Hours"], { header: 1 }) as unknown[][];
+
+    expect(duties[0][0]).toBe("Ward 8S — Approved Duties");
+    expect(duties[1]).toEqual(["Export Period", "August 2026"]);
+    expect(duties[3]).toEqual(["Date", "Staff Name", "Duty Type"]);
+    expect(duties[4]).toEqual(["2/8/2026", "Bob", "0900-1300"]);
+    expect(totals[0][0]).toBe("Ward 8S — Employee Total Hours");
+    expect(totals[3]).toEqual(["Staff Name", "Total Approved Hours"]);
+    expect(totals[4]).toEqual(["Alice", 14]);
+    expect(totals[5]).toEqual(["Bob", 4]);
+    expect(totals[7]).toEqual(["All Staff Total Approved Hours", 18]);
   });
 
-  it("escapes quotation marks in staff names", () => {
-    const csv = buildApprovedDutiesCsv(
-      [{ userId: "staff-1", userName: 'May "M" Chan', date: "1/8/2026", dutyType: "A" }],
+  it("calculates hours only from the duties provided to the selected export period", () => {
+    const workbook = buildApprovedDutiesWorkbook(
+      XLSX,
+      [{ userId: "staff-1", userName: "Alice", date: "1/8/2026", dutyType: "A" }],
       [{ label: "A", hours: 7 }],
       { wardName: "Ward 8S", exportPeriod: "August 2026" },
     );
+    const totals = XLSX.utils.sheet_to_json(workbook.Sheets["Employee Total Hours"], { header: 1 }) as unknown[][];
 
-    expect(csv).toContain('"May ""M"" Chan"');
+    expect(totals[4]).toEqual(["Alice", 7]);
+    expect(totals[6]).toEqual(["All Staff Total Approved Hours", 7]);
   });
 });
