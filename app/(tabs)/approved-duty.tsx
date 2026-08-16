@@ -454,45 +454,7 @@ export default function ApprovedDutyScreen() {
     <ScreenContainer className="flex-1">
       {/* Header with weekly hours */}
       <View style={{ alignItems: "center", paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.border }}>
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground }}>Approved duty</Text>
-          {!isAdmin && (
-            <View
-              style={{
-                flexDirection: "row",
-                marginLeft: 10,
-                padding: 2,
-                borderRadius: 8,
-                backgroundColor: colors.surface,
-                borderWidth: 1,
-                borderColor: colors.border,
-              }}
-            >
-              {([
-                { value: "mine", label: "Mine" },
-                { value: "all", label: "All" },
-              ] as const).map((option) => {
-                const selected = approvedDutyView === option.value;
-                return (
-                  <TouchableOpacity
-                    key={option.value}
-                    onPress={() => setApprovedDutyView(option.value)}
-                    style={{
-                      paddingHorizontal: 9,
-                      paddingVertical: 4,
-                      borderRadius: 6,
-                      backgroundColor: selected ? "#4CAF50" : "transparent",
-                    }}
-                  >
-                    <Text style={{ fontSize: 11, fontWeight: "700", color: selected ? "#fff" : colors.muted }}>
-                      {option.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
-        </View>
+        <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground }}>Approved duty</Text>
         {isAdmin && (
           <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>
             Swipe right → to reject duty
@@ -540,7 +502,7 @@ export default function ApprovedDutyScreen() {
           <View style={{ flexDirection: "row", alignItems: "center" }}>
             <TouchableOpacity
               onPress={prevMonth}
-              style={{ padding: 10, borderRadius: 20, backgroundColor: colors.background }}
+              style={{ padding: 8, borderRadius: 20, backgroundColor: colors.background }}
             >
               <Text style={{ fontSize: 18, color: colors.foreground, fontWeight: "700" }}>◀</Text>
             </TouchableOpacity>
@@ -549,12 +511,47 @@ export default function ApprovedDutyScreen() {
             </Text>
             <TouchableOpacity
               onPress={nextMonth}
-              style={{ padding: 10, borderRadius: 20, backgroundColor: colors.background }}
+              style={{ padding: 8, borderRadius: 20, backgroundColor: colors.background }}
             >
               <Text style={{ fontSize: 18, color: colors.foreground, fontWeight: "700" }}>▶</Text>
             </TouchableOpacity>
           </View>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          {!isAdmin && (
+            <View
+              style={{
+                flexDirection: "row",
+                padding: 2,
+                borderRadius: 8,
+                backgroundColor: colors.background,
+                borderWidth: 1,
+                borderColor: colors.border,
+              }}
+            >
+              {([
+                { value: "mine", label: "Mine" },
+                { value: "all", label: "All" },
+              ] as const).map((option) => {
+                const selected = approvedDutyView === option.value;
+                return (
+                  <TouchableOpacity
+                    key={option.value}
+                    onPress={() => setApprovedDutyView(option.value)}
+                    style={{
+                      paddingHorizontal: 7,
+                      paddingVertical: 3,
+                      borderRadius: 6,
+                      backgroundColor: selected ? "#4CAF50" : "transparent",
+                    }}
+                  >
+                    <Text style={{ fontSize: 10, fontWeight: "700", color: selected ? "#fff" : colors.muted }}>
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
             {[
               { color: "#EF4444", label: "A" },
               { color: "#3B82F6", label: "P" },
@@ -562,8 +559,8 @@ export default function ApprovedDutyScreen() {
               { color: "#86EFAC", label: "9-13" },
             ].map(({ color, label }) => (
               <View key={label} style={{ flexDirection: "row", alignItems: "center" }}>
-                <View style={{ backgroundColor: color, width: 8, height: 8, borderRadius: 4 }} />
-                <Text style={{ fontSize: 10, color: colors.muted, marginLeft: 3 }}>{label}</Text>
+                <View style={{ backgroundColor: color, width: 7, height: 7, borderRadius: 4 }} />
+                <Text style={{ fontSize: 9, color: colors.muted, marginLeft: 2 }}>{label}</Text>
               </View>
             ))}
           </View>
