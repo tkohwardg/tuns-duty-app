@@ -16,8 +16,10 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useAuthContext } from "@/lib/auth-context";
 import {
   getAllApprovedRequests,
+  getAllUsers,
   updateDutyRequestStatus,
   type DutyRequest,
+  type UserProfile,
 } from "@/lib/firebase";
 import { updateSheetStatus } from "@/lib/google-sheets";
 import {
@@ -30,7 +32,7 @@ import { Swipeable } from "react-native-gesture-handler";
 import { useNavigation } from "@react-navigation/native";
 import { useColors } from "@/hooks/use-colors";
 import { useSettings } from "@/lib/settings-context";
-import { getVisibleApprovedDuties, type ApprovedDutyView } from "@/lib/approved-duty-view";
+import { filterApprovedDutiesByColleague, getFilterableColleagues, getVisibleApprovedDuties, type ApprovedDutyView } from "@/lib/approved-duty-view";
 
 function parseDateStr(dateStr: string): Date {
   const parts = dateStr.split("/");
@@ -55,6 +57,9 @@ export default function ApprovedDutyScreen() {
   const [selectedDateStr, setSelectedDateStr] = useState("");
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [approvedDutyView, setApprovedDutyView] = useState<ApprovedDutyView>("mine");
+  const [filterableColleagues, setFilterableColleagues] = useState<UserProfile[]>([]);
+  const [selectedColleagueId, setSelectedColleagueId] = useState<string | null>(null);
+  const [showColleagueFilter, setShowColleagueFilter] = useState(false);
 
   const loadApproved = useCallback(async () => {
     try {
@@ -82,14 +87,23 @@ export default function ApprovedDutyScreen() {
     return unsubscribe;
   }, [navigation, loadApproved]);
 
+  useEffect(() => {
+    if (!isAdmin) return;
+    getAllUsers()
+      .then((users) => setFilterableColleagues(getFilterableColleagues(users)))
+      .catch((error) => console.error("Error loading colleague filter:", error));
+  }, [isAdmin]);
+
   const visibleApprovedRequests = useMemo(
-    () => getVisibleApprovedDuties(
-      approvedRequests,
-      user?.uid ?? userProfile?.uid,
-      isAdmin,
-      approvedDutyView,
-    ),
-    [approvedRequests, user?.uid, userProfile?.uid, isAdmin, approvedDutyView],
+    () => isAdmin
+      ? filterApprovedDutiesByColleague(approvedRequests, selectedColleagueId)
+      : getVisibleApprovedDuties(approvedRequests, user?.uid ?? userProfile?.uid, false, approvedDutyView),
+    [approvedRequests, user?.uid, userProfile?.uid, isAdmin, approvedDutyView, selectedColleagueId],
+  );
+
+  const selectedColleagueName = useMemo(
+    () => filterableColleagues.find((item) => item.uid === selectedColleagueId)?.name ?? "All staff",
+    [filterableColleagues, selectedColleagueId],
   );
 
   const onRefresh = async () => {
@@ -153,8 +167,8 @@ export default function ApprovedDutyScreen() {
     weekEnd.setDate(weekStart.getDate() + 6);
     weekEnd.setHours(23, 59, 59, 999);
 
-    const weekDuties = approvedRequests.filter((r) => {
-      if (!isAdmin && userProfile?.uid && r.userId !== userProfile.uid) return false;
+    const weeklySource = isAdmin ? visibleApprovedRequests : approvedRequests.filter((r) => r.userId === (user?.uid ?? userProfile?.uid));
+    const weekDuties = weeklySource.filter((r) => {
       const d = parseDateStr(r.date);
       return d >= weekStart && d <= weekEnd;
     });
@@ -551,6 +565,15 @@ export default function ApprovedDutyScreen() {
               })}
             </View>
           )}
+          {isAdmin && (
+            <TouchableOpacity
+              onPress={() => setShowColleagueFilter(true)}
+              style={{ maxWidth: 96, flexDirection: "row", alignItems: "center", paddingHorizontal: 7, paddingVertical: 6, borderRadius: 8, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}
+            >
+              <Text numberOfLines={1} style={{ flex: 1, fontSize: 10, fontWeight: "700", color: colors.foreground }}>{selectedColleagueName}</Text>
+              <Text style={{ marginLeft: 3, fontSize: 10, color: colors.muted }}>⌄</Text>
+            </TouchableOpacity>
+          )}
           <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
             {[
               { color: "#EF4444", label: "A" },
@@ -596,6 +619,29 @@ export default function ApprovedDutyScreen() {
           />
         )}
       </View>
+
+      {/* Admin colleague filter — only User Role accounts appear here. */}
+      <Modal visible={showColleagueFilter} transparent animationType="fade" onRequestClose={() => setShowColleagueFilter(false)}>
+        <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 28, backgroundColor: "rgba(0,0,0,0.45)" }}>
+          <View style={{ maxHeight: "65%", borderRadius: 16, padding: 16, backgroundColor: colors.background }}>
+            <Text style={{ fontSize: 16, fontWeight: "700", color: colors.foreground, marginBottom: 10 }}>Filter colleague</Text>
+            <TouchableOpacity onPress={() => { setSelectedColleagueId(null); setShowColleagueFilter(false); }} style={{ padding: 12, borderRadius: 10, backgroundColor: selectedColleagueId === null ? "#E8F5E9" : colors.surface, marginBottom: 6 }}>
+              <Text style={{ fontWeight: "700", color: selectedColleagueId === null ? "#2E7D32" : colors.foreground }}>All staff</Text>
+            </TouchableOpacity>
+            <FlatList
+              data={filterableColleagues}
+              keyExtractor={(item) => item.uid}
+              ListEmptyComponent={<Text style={{ padding: 14, textAlign: "center", color: colors.muted }}>No User Role colleagues found</Text>}
+              renderItem={({ item }) => (
+                <TouchableOpacity onPress={() => { setSelectedColleagueId(item.uid); setShowColleagueFilter(false); }} style={{ padding: 12, borderRadius: 10, backgroundColor: selectedColleagueId === item.uid ? "#E8F5E9" : colors.surface, marginBottom: 6 }}>
+                  <Text style={{ fontWeight: "700", color: selectedColleagueId === item.uid ? "#2E7D32" : colors.foreground }}>{item.name}</Text>
+                  <Text style={{ marginTop: 2, fontSize: 11, color: colors.muted }}>Staff no. {item.staffNumber}</Text>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
 
       {/* Approved Duties Modal (on date tap) */}
       <Modal

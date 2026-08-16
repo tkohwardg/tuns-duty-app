@@ -98,3 +98,5 @@
 - [x] Add a User-only Mine/All toggle to Approved Duty, defaulting to Mine
 - [x] Apply the selected approved-duty view consistently to the calendar, date modal, and lower list
 - [x] Move the User-only Mine/All toggle into the Calendar header between month navigation and duty legend
+- [x] Add an Admin-only Approved Duty colleague-name filter listing User Role accounts only
+- [x] Apply the Admin's selected colleague filter to the calendar, date modal, and lower list
