@@ -30,6 +30,7 @@ import { Swipeable } from "react-native-gesture-handler";
 import { useNavigation } from "@react-navigation/native";
 import { useColors } from "@/hooks/use-colors";
 import { useSettings } from "@/lib/settings-context";
+import { getVisibleApprovedDuties, type ApprovedDutyView } from "@/lib/approved-duty-view";
 
 function parseDateStr(dateStr: string): Date {
   const parts = dateStr.split("/");
@@ -53,6 +54,7 @@ export default function ApprovedDutyScreen() {
   const [showDutyModal, setShowDutyModal] = useState(false);
   const [selectedDateStr, setSelectedDateStr] = useState("");
   const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [approvedDutyView, setApprovedDutyView] = useState<ApprovedDutyView>("mine");
 
   const loadApproved = useCallback(async () => {
     try {
@@ -80,22 +82,32 @@ export default function ApprovedDutyScreen() {
     return unsubscribe;
   }, [navigation, loadApproved]);
 
+  const visibleApprovedRequests = useMemo(
+    () => getVisibleApprovedDuties(
+      approvedRequests,
+      user?.uid ?? userProfile?.uid,
+      isAdmin,
+      approvedDutyView,
+    ),
+    [approvedRequests, user?.uid, userProfile?.uid, isAdmin, approvedDutyView],
+  );
+
   const onRefresh = async () => {
     setRefreshing(true);
     await loadApproved();
     setRefreshing(false);
   };
 
-  // Derive the most recent updatedAt timestamp from all approved requests
+  // Derive the most recent updatedAt timestamp from the active approved-duty view.
   const lastUpdatedTime = useMemo(() => {
-    if (approvedRequests.length === 0) return null;
+    if (visibleApprovedRequests.length === 0) return null;
     let latest = 0;
-    for (const r of approvedRequests) {
+    for (const r of visibleApprovedRequests) {
       const ms = r.updatedAt?.toMillis?.() ?? 0;
       if (ms > latest) latest = ms;
     }
     return latest > 0 ? new Date(latest) : null;
-  }, [approvedRequests]);
+  }, [visibleApprovedRequests]);
 
   const formatLastUpdated = (date: Date | null): string => {
     if (!date) return "—";
@@ -115,7 +127,7 @@ export default function ApprovedDutyScreen() {
   // Filter: only show duties from today onwards in the list, sorted ascending
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const futureApproved = approvedRequests
+  const futureApproved = visibleApprovedRequests
     .filter((r) => {
       const d = parseDateStr(r.date);
       return d >= today;
@@ -249,7 +261,7 @@ export default function ApprovedDutyScreen() {
   // Get approved duties for any date
   const getApprovedForAnyDate = (day: number, month: number, year: number): DutyRequest[] => {
     const dateStr = formatDateStr(day, month, year);
-    return approvedRequests.filter((r) => r.date === dateStr);
+    return visibleApprovedRequests.filter((r) => r.date === dateStr);
   };
 
   const getApprovedForDate = (day: number): DutyRequest[] =>
@@ -442,7 +454,45 @@ export default function ApprovedDutyScreen() {
     <ScreenContainer className="flex-1">
       {/* Header with weekly hours */}
       <View style={{ alignItems: "center", paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.border }}>
-        <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground }}>Approved duty</Text>
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground }}>Approved duty</Text>
+          {!isAdmin && (
+            <View
+              style={{
+                flexDirection: "row",
+                marginLeft: 10,
+                padding: 2,
+                borderRadius: 8,
+                backgroundColor: colors.surface,
+                borderWidth: 1,
+                borderColor: colors.border,
+              }}
+            >
+              {([
+                { value: "mine", label: "Mine" },
+                { value: "all", label: "All" },
+              ] as const).map((option) => {
+                const selected = approvedDutyView === option.value;
+                return (
+                  <TouchableOpacity
+                    key={option.value}
+                    onPress={() => setApprovedDutyView(option.value)}
+                    style={{
+                      paddingHorizontal: 9,
+                      paddingVertical: 4,
+                      borderRadius: 6,
+                      backgroundColor: selected ? "#4CAF50" : "transparent",
+                    }}
+                  >
+                    <Text style={{ fontSize: 11, fontWeight: "700", color: selected ? "#fff" : colors.muted }}>
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+        </View>
         {isAdmin && (
           <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>
             Swipe right → to reject duty

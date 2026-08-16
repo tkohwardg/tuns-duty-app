@@ -95,3 +95,5 @@
 - [x] Correct the export header row format identified in the provided July sample
 - [x] Rename the approved-duties export action from CSV to XLSX
 - [x] Show a clear no-approved-duties message for an empty selected export period
+- [x] Add a User-only Mine/All toggle to Approved Duty, defaulting to Mine
+- [x] Apply the selected approved-duty view consistently to the calendar, date modal, and lower list
