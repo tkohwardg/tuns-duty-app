@@ -93,3 +93,5 @@
 - [x] Replace approved-duties CSV downloads with formatted .xlsx Excel workbooks
 - [x] Separate duty details and selected-period employee-hour totals into workbook sheets
 - [x] Correct the export header row format identified in the provided July sample
+- [x] Rename the approved-duties export action from CSV to XLSX
+- [x] Show a clear no-approved-duties message for an empty selected export period

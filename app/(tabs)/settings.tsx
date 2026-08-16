@@ -22,6 +22,7 @@ import { DatePickerCalendar } from "@/components/date-picker-calendar";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import { buildApprovedDutiesWorkbook } from "@/lib/approved-duties-export";
+import { getNoApprovedDutiesMessage } from "@/lib/export-feedback";
 
 function parseDateStr(dateStr: string): Date {
   const parts = dateStr.split("/");
@@ -261,6 +262,14 @@ export default function SettingsScreen() {
     return new Date(today.getFullYear(), today.getMonth(), 1);
   });
 
+  const showExportMessage = (title: string, message: string) => {
+    if (Platform.OS === "web") {
+      window.alert(`${title}\n\n${message}`);
+    } else {
+      Alert.alert(title, message);
+    }
+  };
+
   const COLOR_OPTIONS = [
     "#EF4444", "#F97316", "#F59E0B", "#22C55E", "#86EFAC",
     "#3B82F6", "#6366F1", "#8B5CF6", "#EC4899", "#6B7280",
@@ -400,6 +409,7 @@ export default function SettingsScreen() {
     }
     const start = parseDateStr(startDate);
     const end = parseDateStr(endDate);
+    const periodTitle = period?.title ?? `${startDate} to ${endDate}`;
     if (start > end) {
       Alert.alert("Error", "Start date must be before end date.");
       return;
@@ -425,7 +435,7 @@ export default function SettingsScreen() {
       });
 
       if (filtered.length === 0) {
-        Alert.alert("No Data", "No approved duties found in the selected period.");
+        showExportMessage("No Approved Duties", getNoApprovedDutiesMessage(periodTitle));
         setExporting(false);
         return;
       }
@@ -433,7 +443,7 @@ export default function SettingsScreen() {
       const XLSX = await import("xlsx");
       const workbook = buildApprovedDutiesWorkbook(XLSX, filtered, settings.dutyOptions, {
         wardName: settings.wardName,
-        exportPeriod: period?.title ?? `${startDate} to ${endDate}`,
+        exportPeriod: periodTitle,
       });
       const workbookBase64 = XLSX.write(workbook, { bookType: "xlsx", type: "base64" });
 
@@ -741,7 +751,7 @@ export default function SettingsScreen() {
             {exporting ? (
               <ActivityIndicator size="small" color="#fff" />
             ) : (
-              <Text className="text-white font-semibold">Export as CSV</Text>
+              <Text className="text-white font-semibold">Export as XLSX</Text>
             )}
           </TouchableOpacity>
         </View>
