@@ -626,9 +626,9 @@ export default function ApprovedDutyScreen() {
       {/* Admin colleague filter — only User Role accounts appear here. */}
       <Modal visible={showColleagueFilter} transparent onRequestClose={() => setShowColleagueFilter(false)}>
         <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 28, backgroundColor: "rgba(0,0,0,0.45)" }}>
-          <View style={{ maxHeight: "65%", borderRadius: 16, padding: 16, backgroundColor: colors.background }}>
-            <Text style={{ fontSize: 16, fontWeight: "700", color: colors.foreground, marginBottom: 10 }}>Filter colleague</Text>
-            <TouchableOpacity onPress={() => { setSelectedColleagueId(null); setShowColleagueFilter(false); }} style={{ padding: 12, borderRadius: 10, backgroundColor: selectedColleagueId === null ? "#E8F5E9" : colors.surface, marginBottom: 6 }}>
+          <View style={{ maxHeight: "65%", borderRadius: 16, padding: 20, backgroundColor: colors.background }}>
+            <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground, marginBottom: 14 }}>Filter colleague</Text>
+            <TouchableOpacity onPress={() => { setSelectedColleagueId(null); setShowColleagueFilter(false); }} style={{ minHeight: 48, justifyContent: "center", paddingHorizontal: 14, borderRadius: 10, backgroundColor: selectedColleagueId === null ? "#E8F5E9" : colors.surface, marginBottom: 8 }}>
               <Text style={{ fontWeight: "700", color: selectedColleagueId === null ? "#2E7D32" : colors.foreground }}>All staff</Text>
             </TouchableOpacity>
             <FlatList
@@ -636,7 +636,7 @@ export default function ApprovedDutyScreen() {
               keyExtractor={(item) => item.uid}
               ListEmptyComponent={<Text style={{ padding: 14, textAlign: "center", color: colors.muted }}>No User Role colleagues found</Text>}
               renderItem={({ item }) => (
-                <TouchableOpacity onPress={() => { setSelectedColleagueId(item.uid); setShowColleagueFilter(false); }} style={{ padding: 12, borderRadius: 10, backgroundColor: selectedColleagueId === item.uid ? "#E8F5E9" : colors.surface, marginBottom: 6 }}>
+                <TouchableOpacity onPress={() => { setSelectedColleagueId(item.uid); setShowColleagueFilter(false); }} style={{ minHeight: 48, justifyContent: "center", paddingHorizontal: 14, borderRadius: 10, backgroundColor: selectedColleagueId === item.uid ? "#E8F5E9" : colors.surface, marginBottom: 8 }}>
                   <Text style={{ fontWeight: "700", color: selectedColleagueId === item.uid ? "#2E7D32" : colors.foreground }}>{item.name}</Text>
                   <Text style={{ marginTop: 2, fontSize: 11, color: colors.muted }}>Staff no. {item.staffNumber}</Text>
                 </TouchableOpacity>

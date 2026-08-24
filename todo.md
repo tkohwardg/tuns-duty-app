@@ -113,3 +113,4 @@
 - [x] Apply subtle fade transitions to all app modals
 - [x] Add shared temporary success and error toast feedback for key user actions
 - [x] Remove all modal fade transitions and restore immediate presentation
+- [x] Standardize title and list spacing across colleague filter modals
