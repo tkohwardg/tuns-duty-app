@@ -20,8 +20,10 @@ import { useAuthContext } from "@/lib/auth-context";
 import {
   getAllPendingRequests,
   getAllApprovedRequests,
+  getAllUsersWithAvatarColors,
   updateDutyRequestStatus,
   type DutyRequest,
+  type UserProfile,
 } from "@/lib/firebase";
 import { updateSheetStatus } from "@/lib/google-sheets";
 import { useSettings, type DutyOption } from "@/lib/settings-context";
@@ -60,6 +62,9 @@ export default function AdminApproveScreen() {
   const [showDutyModal, setShowDutyModal] = useState(false);
   const [selectedDateStr, setSelectedDateStr] = useState("");
   const [selectedStaff, setSelectedStaff] = useState<{ name: string; userId: string; dutyDate: string } | null>(null);
+  const [staffProfiles, setStaffProfiles] = useState<UserProfile[]>([]);
+  const [pendingStaffId, setPendingStaffId] = useState<string | null>(null);
+  const [showPendingFilter, setShowPendingFilter] = useState(false);
 
   // Batch mode state
   const [batchMode, setBatchMode] = useState(false);
@@ -73,9 +78,10 @@ export default function AdminApproveScreen() {
 
   const loadData = useCallback(async () => {
     try {
-      const [pending, approved] = await Promise.all([
+      const [pending, approved, users] = await Promise.all([
         getAllPendingRequests(),
         getAllApprovedRequests(),
+        getAllUsersWithAvatarColors(),
       ]);
       const sortedPending = pending.sort((a, b) => {
         const dateA = parseDateStr(a.date);
@@ -88,6 +94,7 @@ export default function AdminApproveScreen() {
       });
       setPendingRequests(sortedPending);
       setApprovedRequests(approved);
+      setStaffProfiles(users.filter((user) => user.role === "user").sort((a, b) => a.name.localeCompare(b.name)));
     } catch (error) {
       console.error("Error loading data:", error);
     }
@@ -189,13 +196,14 @@ export default function AdminApproveScreen() {
     });
   };
 
-  const isAllSelected = selectedIds.size === pendingRequests.length && pendingRequests.length > 0;
+  const filteredPendingRequests = pendingStaffId ? pendingRequests.filter((item) => item.userId === pendingStaffId) : pendingRequests;
+  const isAllSelected = selectedIds.size === filteredPendingRequests.length && filteredPendingRequests.length > 0;
 
   const toggleSelectAll = () => {
     if (isAllSelected) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(pendingRequests.map((r) => r.id!).filter(Boolean)));
+      setSelectedIds(new Set(filteredPendingRequests.map((r) => r.id!).filter(Boolean)));
     }
   };
 
@@ -459,6 +467,7 @@ export default function AdminApproveScreen() {
 
   // Pending list item
   const renderPendingItem = ({ item }: { item: DutyRequest }) => {
+    const avatarColor = staffProfiles.find((profile) => profile.uid === item.userId)?.avatarColor ?? "#E9D1DB";
     if (batchMode) {
       const isSelected = selectedIds.has(item.id!);
       return (
@@ -485,7 +494,7 @@ export default function AdminApproveScreen() {
           >
             {isSelected && <Text style={{ fontSize: 12, color: "#fff", fontWeight: "700" }}>{"✓"}</Text>}
           </View>
-          <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "#D1D5DB", marginRight: 12 }} />
+          <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: avatarColor, marginRight: 12, alignItems: "center", justifyContent: "center" }}><Text style={{ fontWeight: "700", color: "#475569" }}>{item.userName.charAt(0)}</Text></View>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 14, fontWeight: "700" }} numberOfLines={1}>{item.userName}</Text>
             <Text style={{ fontSize: 12, color: "#687076", marginTop: 2 }}>{item.date}</Text>
@@ -514,7 +523,7 @@ export default function AdminApproveScreen() {
           style={{ flex: 1, flexDirection: "row", alignItems: "center" }}
           activeOpacity={0.7}
         >
-          <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "#D1D5DB", marginRight: 12 }} />
+          <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: avatarColor, marginRight: 12, alignItems: "center", justifyContent: "center" }}><Text style={{ fontWeight: "700", color: "#475569" }}>{item.userName.charAt(0)}</Text></View>
           <View style={{ flex: 1, marginRight: 8 }}>
             <Text style={{ fontSize: 14, fontWeight: "700" }} numberOfLines={1}>{item.userName}</Text>
             <Text style={{ fontSize: 12, color: "#687076", marginTop: 2 }}>{item.date}</Text>
@@ -641,6 +650,7 @@ export default function AdminApproveScreen() {
         </View>
       </View>
 
+      <Modal visible={showPendingFilter} transparent animationType="fade" onRequestClose={() => setShowPendingFilter(false)}><View style={{ flex: 1, justifyContent: "center", padding: 28, backgroundColor: "rgba(0,0,0,0.45)" }}><View style={{ maxHeight: "65%", padding: 16, borderRadius: 16, backgroundColor: "#fff" }}><Text style={{ fontSize: 16, fontWeight: "700", marginBottom: 10 }}>Filter colleague</Text><TouchableOpacity onPress={() => { setPendingStaffId(null); setShowPendingFilter(false); }} style={{ padding: 11, borderRadius: 9, backgroundColor: !pendingStaffId ? "#E8F5E9" : "#F5F5F5", marginBottom: 6 }}><Text style={{ fontWeight: "700" }}>All pending</Text></TouchableOpacity><FlatList data={staffProfiles} keyExtractor={(item) => item.uid} renderItem={({ item }) => <TouchableOpacity onPress={() => { setPendingStaffId(item.uid); setShowPendingFilter(false); }} style={{ padding: 11, borderRadius: 9, backgroundColor: pendingStaffId === item.uid ? "#E8F5E9" : "#F5F5F5", marginBottom: 6 }}><Text style={{ fontWeight: "700" }}>{item.name}</Text></TouchableOpacity>} /></View></View></Modal>
       {/* Pending Requests List */}
       <View className="flex-1 mx-3 mt-2 border border-border rounded-xl overflow-hidden"
         style={{ marginBottom: batchMode ? 0 : 8 }}>
@@ -648,7 +658,7 @@ export default function AdminApproveScreen() {
         <View style={{ backgroundColor: "#f5f5f5", paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#E5E7EB", flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 14, fontWeight: "700" }}>
-              Pending ({pendingRequests.length})
+              Pending ({filteredPendingRequests.length})
             </Text>
             {batchMode && (
               <Text style={{ fontSize: 12, color: "#687076", marginTop: 2 }}>
@@ -657,6 +667,9 @@ export default function AdminApproveScreen() {
             )}
           </View>
 
+          {!batchMode && pendingRequests.length > 0 && (
+            <TouchableOpacity onPress={() => setShowPendingFilter(true)} style={{ marginRight: 8, maxWidth: 100, paddingHorizontal: 8, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: "#D1D5DB" }}><Text numberOfLines={1} style={{ fontSize: 11, fontWeight: "700" }}>{staffProfiles.find((user) => user.uid === pendingStaffId)?.name ?? "Filter"} ⌄</Text></TouchableOpacity>
+          )}
           {!batchMode && pendingRequests.length > 0 && (
             <TouchableOpacity
               onPress={enterBatchMode}
@@ -711,7 +724,7 @@ export default function AdminApproveScreen() {
           />
         ) : (
           <FlatList
-            data={pendingRequests}
+            data={filteredPendingRequests}
             renderItem={renderPendingItem}
             keyExtractor={(item) => item.id || Math.random().toString()}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}

@@ -125,7 +125,14 @@ export interface UserProfile {
   name: string;
   staffNumber: string;
   role: "admin" | "user";
+  avatarColor?: string;
 }
+
+export const SOFT_AVATAR_COLORS = ["#F6C1C7", "#F7D6B5", "#EBD5F5", "#D7CEF3", "#C9DCF7", "#C5E8E1", "#F4D0B8", "#E9D1DB", "#D8E6B8", "#F2D4E0", "#D3C8EE", "#C7E1F1"];
+export const nextAvatarColor = (users: UserProfile[]) => {
+  const available = SOFT_AVATAR_COLORS.filter((color) => !users.some((user) => user.avatarColor === color));
+  return available[Math.floor(Math.random() * available.length)] ?? SOFT_AVATAR_COLORS[users.length % SOFT_AVATAR_COLORS.length];
+};
 
 // Firestore operations
 export const addDutyRequest = async (request: Omit<DutyRequest, "id" | "createdAt" | "updatedAt">) => {
@@ -263,13 +270,15 @@ export const createUserAsAdmin = async (
     await deleteApp(secondaryApp);
     secondaryApp = null;
 
-    // Write user profile to Firestore
+    // Write user profile to Firestore with an unused soft avatar color.
+    const avatarColor = nextAvatarColor(await getAllUsers());
     await setDoc(doc(db, COLLECTIONS.USERS, newUid), {
       uid: newUid,
       email,
       name,
       staffNumber,
       role,
+      avatarColor,
     });
 
     return { uid: newUid };
@@ -288,6 +297,19 @@ export const createUserAsAdmin = async (
 export const getAllUsers = async (): Promise<UserProfile[]> => {
   const snapshot = await getDocs(collection(db, COLLECTIONS.USERS));
   return snapshot.docs.map((d) => d.data() as UserProfile);
+};
+
+export const getAllUsersWithAvatarColors = async (): Promise<UserProfile[]> => {
+  const users = await getAllUsers();
+  const { updateDoc } = await import("firebase/firestore");
+  const allocated = users.filter((user) => user.avatarColor);
+  for (const user of users.filter((item) => !item.avatarColor)) {
+    const avatarColor = nextAvatarColor(allocated);
+    await updateDoc(doc(db, COLLECTIONS.USERS, user.uid), { avatarColor });
+    user.avatarColor = avatarColor;
+    allocated.push(user);
+  }
+  return users;
 };
 
 /**
