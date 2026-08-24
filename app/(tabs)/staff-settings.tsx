@@ -83,10 +83,10 @@ export default function StaffSettingsScreen() {
         }}>
           <View style={{
             width: 48, height: 48, borderRadius: 24,
-            backgroundColor: "#D1D5DB", alignItems: "center", justifyContent: "center",
+            backgroundColor: userProfile?.avatarColor ?? "#E9D1DB", alignItems: "center", justifyContent: "center",
             marginRight: 12,
           }}>
-            <Text style={{ fontSize: 22 }}>{"👤"}</Text>
+            <Text style={{ fontSize: 18, fontWeight: "700", color: "#475569" }}>{(userProfile?.name || user?.email || "?").charAt(0)}</Text>
           </View>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 15, fontWeight: "700", color: "#11181C" }}>

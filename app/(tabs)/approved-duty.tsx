@@ -426,9 +426,10 @@ export default function ApprovedDutyScreen() {
   };
 
   const renderApprovedItem = ({ item }: { item: DutyRequest }) => {
+    const avatarColor = filterableColleagues.find((profile) => profile.uid === item.userId)?.avatarColor ?? (item.userId === (user?.uid ?? userProfile?.uid) ? userProfile?.avatarColor : undefined) ?? "#E9D1DB";
     const content = (
       <View style={{ flexDirection: "row", alignItems: "center", paddingVertical: 12, paddingHorizontal: 16, backgroundColor: colors.background, borderBottomWidth: 1, borderBottomColor: colors.border }}>
-        <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "#D1D5DB", marginRight: 12 }} />
+        <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: avatarColor, marginRight: 12, alignItems: "center", justifyContent: "center" }}><Text style={{ fontWeight: "700", color: "#475569" }}>{item.userName.charAt(0)}</Text></View>
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground }} numberOfLines={1}>
             {item.userName}

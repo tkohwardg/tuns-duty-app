@@ -103,3 +103,6 @@
 - [x] Add a pending-list colleague filter between the Pending label and Batch action
 - [x] Assign each staff member a unique persistent soft avatar color that excludes duty colors
 - [x] Automatically assign an unused soft avatar color when a new staff user is created
+- [x] Apply persistent soft avatar colors to every colleague avatar across Approved Duty, My Requests, Settings, and related lists
+- [x] Show each user's assigned avatar color in User Management
+- [x] Center the Pending colleague filter and allow background-tap dismissal of its modal

@@ -153,8 +153,8 @@ export default function MyRequestsScreen() {
         )}
         <View
           className="w-10 h-10 rounded-full mr-3"
-          style={{ backgroundColor: "#D1D5DB" }}
-        />
+          style={{ backgroundColor: userProfile?.avatarColor ?? "#E9D1DB", alignItems: "center", justifyContent: "center" }}
+        ><Text className="font-bold text-slate-600">{item.userName.charAt(0)}</Text></View>
         <View className="flex-1">
           <Text className="text-base font-bold text-foreground" numberOfLines={1}>
             {item.userName}
@@ -172,8 +172,8 @@ export default function MyRequestsScreen() {
     <View className="flex-row items-center py-4 px-4 border-b border-border">
       <View
         className="w-10 h-10 rounded-full mr-3"
-        style={{ backgroundColor: "#D1D5DB" }}
-      />
+        style={{ backgroundColor: userProfile?.avatarColor ?? "#E9D1DB", alignItems: "center", justifyContent: "center" }}
+      ><Text className="font-bold text-slate-600">{item.userName.charAt(0)}</Text></View>
       <View className="flex-1">
         <Text className="text-base font-bold text-foreground" numberOfLines={1}>
           {item.userName}

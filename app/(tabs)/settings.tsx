@@ -536,10 +536,10 @@ export default function SettingsScreen() {
         }}>
           <View style={{
             width: 48, height: 48, borderRadius: 24,
-            backgroundColor: "#D1D5DB", alignItems: "center", justifyContent: "center",
+            backgroundColor: userProfile?.avatarColor ?? "#E9D1DB", alignItems: "center", justifyContent: "center",
             marginRight: 12,
           }}>
-            <Text style={{ fontSize: 22 }}>{"👤"}</Text>
+            <Text style={{ fontSize: 18, fontWeight: "700", color: "#475569" }}>{(userProfile?.name || user?.email || "?").charAt(0)}</Text>
           </View>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 15, fontWeight: "700", color: "#11181C" }}>
@@ -820,6 +820,7 @@ export default function SettingsScreen() {
                   gap: 10,
                 }}
               >
+                <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: u.avatarColor ?? "#E9D1DB", alignItems: "center", justifyContent: "center" }}><Text style={{ fontWeight: "700", fontSize: 12, color: "#475569" }}>{(u.name || "?").charAt(0)}</Text></View>
                 {/* Role badge */}
                 <View style={{
                   backgroundColor: u.role === "admin" ? "#FEF3C7" : "#EFF6FF",
