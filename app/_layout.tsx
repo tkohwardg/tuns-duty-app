@@ -9,6 +9,7 @@ import { ActivityIndicator, View } from "react-native";
 import * as SplashScreen from "expo-splash-screen";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { trpc, createTRPCClient } from "@/lib/trpc";
+import { ToastProvider } from "@/lib/toast-context";
 import "../global.css";
 
 // Keep splash screen visible while fonts load
@@ -65,13 +66,14 @@ export default function RootLayout() {
           <ThemeProvider>
             <AuthProvider>
               <SettingsProvider>
-                <StatusBar style="dark" />
-                <AuthGate>
-                  <Stack screenOptions={{ headerShown: false }}>
-                    <Stack.Screen name="login" />
-                    <Stack.Screen name="(tabs)" />
-                  </Stack>
-                </AuthGate>
+                <ToastProvider><StatusBar style="dark" />
+                  <AuthGate>
+                    <Stack screenOptions={{ headerShown: false }}>
+                      <Stack.Screen name="login" />
+                      <Stack.Screen name="(tabs)" />
+                    </Stack>
+                  </AuthGate>
+                </ToastProvider>
               </SettingsProvider>
             </AuthProvider>
           </ThemeProvider>

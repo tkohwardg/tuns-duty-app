@@ -18,6 +18,7 @@ import { useSettings, type DutyOption } from "@/lib/settings-context";
 import { getAllApprovedRequests, createUserAsAdmin, getAllUsers, deleteUserProfile, getMasterPassword, updateMasterPassword, type DutyRequest, type UserProfile } from "@/lib/firebase";
 import { getNameInitials } from "@/lib/avatar-utils";
 import { ModalCloseButton } from "@/components/modal-close-button";
+import { useToast } from "@/lib/toast-context";
 import { getAuth, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
 import { trpc } from "@/lib/trpc";
 import { DatePickerCalendar } from "@/components/date-picker-calendar";
@@ -39,6 +40,7 @@ function formatDateStr(date: Date): string {
 }
 
 export default function SettingsScreen() {
+  const { showToast } = useToast();
   const { isAdmin, userProfile, user, logout } = useAuthContext();
   const { settings, updateWardName, addDutyOption, removeDutyOption } = useSettings();
 
@@ -286,9 +288,9 @@ export default function SettingsScreen() {
     setSavingWard(true);
     try {
       await updateWardName(wardNameInput.trim());
-      Alert.alert("Success", "Ward name updated.");
+      showToast("Ward name updated.");
     } catch (error) {
-      Alert.alert("Error", "Failed to update ward name.");
+      showToast("Failed to update ward name.", "error");
     } finally {
       setSavingWard(false);
     }
@@ -324,11 +326,10 @@ export default function SettingsScreen() {
       setNewDutyHours("");
       setNewDutyColor("#6B7280");
       setShowAddDuty(false);
-      if (Platform.OS === "web") window.alert("Duty option added successfully.");
-      else Alert.alert("Success", "Duty option added.");
+      showToast("Duty option added.");
     } catch (error) {
       if (Platform.OS === "web") window.alert("Error: Failed to add duty option.");
-      else Alert.alert("Error", "Failed to add duty option.");
+      else showToast("Failed to add duty option.", "error");
     } finally {
       setSavingDuty(false);
     }
@@ -388,10 +389,10 @@ export default function SettingsScreen() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      Alert.alert("Success", "Password updated successfully.");
+      showToast("Password updated successfully.");
     } catch (error: any) {
       if (error.code === "auth/wrong-password" || error.code === "auth/invalid-credential") {
-        Alert.alert("Error", "Current password is incorrect.");
+        showToast("Current password is incorrect.", "error");
       } else {
         Alert.alert("Error", "Failed to change password. Please try again.");
       }
