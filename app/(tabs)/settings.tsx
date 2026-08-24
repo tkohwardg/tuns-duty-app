@@ -16,6 +16,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useAuthContext } from "@/lib/auth-context";
 import { useSettings, type DutyOption } from "@/lib/settings-context";
 import { getAllApprovedRequests, createUserAsAdmin, getAllUsers, deleteUserProfile, getMasterPassword, updateMasterPassword, type DutyRequest, type UserProfile } from "@/lib/firebase";
+import { getNameInitials } from "@/lib/avatar-utils";
 import { getAuth, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
 import { trpc } from "@/lib/trpc";
 import { DatePickerCalendar } from "@/components/date-picker-calendar";
@@ -539,7 +540,7 @@ export default function SettingsScreen() {
             backgroundColor: userProfile?.avatarColor ?? "#E9D1DB", alignItems: "center", justifyContent: "center",
             marginRight: 12,
           }}>
-            <Text style={{ fontSize: 18, fontWeight: "700", color: "#475569" }}>{(userProfile?.name || user?.email || "?").charAt(0)}</Text>
+            <Text style={{ fontSize: 18, fontWeight: "700", color: "#475569" }}>{getNameInitials(userProfile?.name || user?.email)}</Text>
           </View>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 15, fontWeight: "700", color: "#11181C" }}>
@@ -820,7 +821,7 @@ export default function SettingsScreen() {
                   gap: 10,
                 }}
               >
-                <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: u.avatarColor ?? "#E9D1DB", alignItems: "center", justifyContent: "center" }}><Text style={{ fontWeight: "700", fontSize: 12, color: "#475569" }}>{(u.name || "?").charAt(0)}</Text></View>
+                <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: u.avatarColor ?? "#E9D1DB", alignItems: "center", justifyContent: "center" }}><Text style={{ fontWeight: "700", fontSize: 12, color: "#475569" }}>{getNameInitials(u.name)}</Text></View>
                 {/* Role badge */}
                 <View style={{
                   backgroundColor: u.role === "admin" ? "#FEF3C7" : "#EFF6FF",

@@ -33,6 +33,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useColors } from "@/hooks/use-colors";
 import { useSettings } from "@/lib/settings-context";
 import { filterApprovedDutiesByColleague, getFilterableColleagues, getVisibleApprovedDuties, type ApprovedDutyView } from "@/lib/approved-duty-view";
+import { getNameInitials } from "@/lib/avatar-utils";
 
 function parseDateStr(dateStr: string): Date {
   const parts = dateStr.split("/");
@@ -429,7 +430,7 @@ export default function ApprovedDutyScreen() {
     const avatarColor = filterableColleagues.find((profile) => profile.uid === item.userId)?.avatarColor ?? (item.userId === (user?.uid ?? userProfile?.uid) ? userProfile?.avatarColor : undefined) ?? "#E9D1DB";
     const content = (
       <View style={{ flexDirection: "row", alignItems: "center", paddingVertical: 12, paddingHorizontal: 16, backgroundColor: colors.background, borderBottomWidth: 1, borderBottomColor: colors.border }}>
-        <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: avatarColor, marginRight: 12, alignItems: "center", justifyContent: "center" }}><Text style={{ fontWeight: "700", color: "#475569" }}>{item.userName.charAt(0)}</Text></View>
+        <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: avatarColor, marginRight: 12, alignItems: "center", justifyContent: "center" }}><Text style={{ fontWeight: "700", color: "#475569" }}>{getNameInitials(item.userName)}</Text></View>
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground }} numberOfLines={1}>
             {item.userName}
@@ -651,8 +652,8 @@ export default function ApprovedDutyScreen() {
         animationType="fade"
         onRequestClose={() => setShowDutyModal(false)}
       >
-        <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 24, backgroundColor: "rgba(0,0,0,0.5)" }}>
-          <View style={{ backgroundColor: colors.background, borderRadius: 16, padding: 16, maxHeight: "60%" }}>
+        <TouchableOpacity activeOpacity={1} onPress={() => setShowDutyModal(false)} style={{ flex: 1, justifyContent: "center", paddingHorizontal: 24, backgroundColor: "rgba(0,0,0,0.5)" }}>
+          <TouchableOpacity activeOpacity={1} onPress={() => {}} style={{ backgroundColor: colors.background, borderRadius: 16, padding: 16, maxHeight: "60%" }}>
             <Text style={{ fontSize: 16, fontWeight: "700", color: colors.foreground, textAlign: "center", marginBottom: 12 }}>
               Approved Duties — {selectedDateStr}
             </Text>
@@ -676,8 +677,8 @@ export default function ApprovedDutyScreen() {
             >
               <Text style={{ color: "#fff", fontWeight: "600" }}>Close</Text>
             </TouchableOpacity>
-          </View>
-        </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
     </ScreenContainer>
   );

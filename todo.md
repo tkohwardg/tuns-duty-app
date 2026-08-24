@@ -106,3 +106,6 @@
 - [x] Apply persistent soft avatar colors to every colleague avatar across Approved Duty, My Requests, Settings, and related lists
 - [x] Show each user's assigned avatar color in User Management
 - [x] Center the Pending colleague filter and allow background-tap dismissal of its modal
+- [x] Remove avatars from Approved Duties date-detail modals
+- [x] Enable background-tap dismissal for all app modals
+- [x] Render all retained avatars with initials from every English name word

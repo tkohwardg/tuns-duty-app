@@ -38,6 +38,7 @@ import {
 } from "@/lib/duty-colors";
 import { Swipeable } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { getNameInitials } from "@/lib/avatar-utils";
 
 
 function parseDateStr(dateStr: string): Date {
@@ -494,7 +495,7 @@ export default function AdminApproveScreen() {
           >
             {isSelected && <Text style={{ fontSize: 12, color: "#fff", fontWeight: "700" }}>{"✓"}</Text>}
           </View>
-          <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: avatarColor, marginRight: 12, alignItems: "center", justifyContent: "center" }}><Text style={{ fontWeight: "700", color: "#475569" }}>{item.userName.charAt(0)}</Text></View>
+          <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: avatarColor, marginRight: 12, alignItems: "center", justifyContent: "center" }}><Text style={{ fontWeight: "700", color: "#475569" }}>{getNameInitials(item.userName)}</Text></View>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 14, fontWeight: "700" }} numberOfLines={1}>{item.userName}</Text>
             <Text style={{ fontSize: 12, color: "#687076", marginTop: 2 }}>{item.date}</Text>
@@ -523,7 +524,7 @@ export default function AdminApproveScreen() {
           style={{ flex: 1, flexDirection: "row", alignItems: "center" }}
           activeOpacity={0.7}
         >
-          <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: avatarColor, marginRight: 12, alignItems: "center", justifyContent: "center" }}><Text style={{ fontWeight: "700", color: "#475569" }}>{item.userName.charAt(0)}</Text></View>
+          <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: avatarColor, marginRight: 12, alignItems: "center", justifyContent: "center" }}><Text style={{ fontWeight: "700", color: "#475569" }}>{getNameInitials(item.userName)}</Text></View>
           <View style={{ flex: 1, marginRight: 8 }}>
             <Text style={{ fontSize: 14, fontWeight: "700" }} numberOfLines={1}>{item.userName}</Text>
             <Text style={{ fontSize: 12, color: "#687076", marginTop: 2 }}>{item.date}</Text>
@@ -818,8 +819,8 @@ export default function AdminApproveScreen() {
 
       {/* Approved Duties Modal */}
       <Modal visible={showDutyModal} transparent animationType="fade" onRequestClose={() => setShowDutyModal(false)}>
-        <View className="flex-1 justify-center px-6" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
-          <View className="bg-background rounded-2xl p-4 max-h-[60%]">
+        <TouchableOpacity activeOpacity={1} onPress={() => setShowDutyModal(false)} className="flex-1 justify-center px-6" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+          <TouchableOpacity activeOpacity={1} onPress={() => {}} className="bg-background rounded-2xl p-4 max-h-[60%]">
             <Text className="text-lg font-bold text-foreground text-center mb-3">
               Approved Duties — {selectedDateStr}
             </Text>
@@ -828,7 +829,6 @@ export default function AdminApproveScreen() {
               keyExtractor={(item) => item.id || Math.random().toString()}
               renderItem={({ item }) => (
                 <View className="flex-row items-center py-3 px-3 border-b border-border">
-                  <View className="w-8 h-8 rounded-full mr-3" style={{ backgroundColor: "#D1D5DB" }} />
                   <View className="flex-1">
                     <Text className="text-sm font-bold text-foreground">{item.userName}</Text>
                   </View>
@@ -844,8 +844,8 @@ export default function AdminApproveScreen() {
             >
               <Text className="text-foreground text-base font-semibold">Close</Text>
             </TouchableOpacity>
-          </View>
-        </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
     </ScreenContainer>
   );

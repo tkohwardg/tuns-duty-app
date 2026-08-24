@@ -19,6 +19,7 @@ import {
 import { updateSheetStatus } from "@/lib/google-sheets";
 import { Swipeable } from "react-native-gesture-handler";
 import { useNavigation } from "@react-navigation/native";
+import { getNameInitials } from "@/lib/avatar-utils";
 
 function parseDateStr(dateStr: string): Date {
   const parts = dateStr.split("/");
@@ -154,7 +155,7 @@ export default function MyRequestsScreen() {
         <View
           className="w-10 h-10 rounded-full mr-3"
           style={{ backgroundColor: userProfile?.avatarColor ?? "#E9D1DB", alignItems: "center", justifyContent: "center" }}
-        ><Text className="font-bold text-slate-600">{item.userName.charAt(0)}</Text></View>
+        ><Text className="font-bold text-slate-600">{getNameInitials(item.userName)}</Text></View>
         <View className="flex-1">
           <Text className="text-base font-bold text-foreground" numberOfLines={1}>
             {item.userName}
@@ -173,7 +174,7 @@ export default function MyRequestsScreen() {
       <View
         className="w-10 h-10 rounded-full mr-3"
         style={{ backgroundColor: userProfile?.avatarColor ?? "#E9D1DB", alignItems: "center", justifyContent: "center" }}
-      ><Text className="font-bold text-slate-600">{item.userName.charAt(0)}</Text></View>
+      ><Text className="font-bold text-slate-600">{getNameInitials(item.userName)}</Text></View>
       <View className="flex-1">
         <Text className="text-base font-bold text-foreground" numberOfLines={1}>
           {item.userName}
