@@ -20,6 +20,7 @@ import { updateSheetStatus } from "@/lib/google-sheets";
 import { Swipeable } from "react-native-gesture-handler";
 import { useNavigation } from "@react-navigation/native";
 import { getNameInitials } from "@/lib/avatar-utils";
+import { ModalCloseButton } from "@/components/modal-close-button";
 
 function parseDateStr(dateStr: string): Date {
   const parts = dateStr.split("/");
@@ -274,12 +275,7 @@ export default function MyRequestsScreen() {
               />
             )}
 
-            <TouchableOpacity
-              onPress={() => setShowRejectedModal(false)}
-              className="mt-4 rounded-xl py-3 items-center border border-border"
-            >
-              <Text className="text-foreground text-base font-semibold">Close</Text>
-            </TouchableOpacity>
+            <ModalCloseButton onPress={() => setShowRejectedModal(false)} />
           </View>
         </View>
       </Modal>

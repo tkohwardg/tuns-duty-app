@@ -39,6 +39,7 @@ import {
 import { Swipeable } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getNameInitials } from "@/lib/avatar-utils";
+import { ModalCloseButton } from "@/components/modal-close-button";
 
 
 function parseDateStr(dateStr: string): Date {
@@ -838,12 +839,7 @@ export default function AdminApproveScreen() {
                 </View>
               )}
             />
-            <TouchableOpacity
-              onPress={() => setShowDutyModal(false)}
-              className="mt-4 rounded-xl py-3 items-center border border-border"
-            >
-              <Text className="text-foreground text-base font-semibold">Close</Text>
-            </TouchableOpacity>
+            <ModalCloseButton onPress={() => setShowDutyModal(false)} />
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>

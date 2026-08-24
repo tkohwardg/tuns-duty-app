@@ -17,6 +17,7 @@ import { useAuthContext } from "@/lib/auth-context";
 import { useSettings, type DutyOption } from "@/lib/settings-context";
 import { getAllApprovedRequests, createUserAsAdmin, getAllUsers, deleteUserProfile, getMasterPassword, updateMasterPassword, type DutyRequest, type UserProfile } from "@/lib/firebase";
 import { getNameInitials } from "@/lib/avatar-utils";
+import { ModalCloseButton } from "@/components/modal-close-button";
 import { getAuth, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
 import { trpc } from "@/lib/trpc";
 import { DatePickerCalendar } from "@/components/date-picker-calendar";
@@ -1031,12 +1032,7 @@ export default function SettingsScreen() {
             </View>
 
             <View className="flex-row gap-3">
-              <TouchableOpacity
-                onPress={() => setShowAddDuty(false)}
-                className="flex-1 py-2.5 rounded-lg items-center border border-border"
-              >
-                <Text className="text-foreground font-semibold">Cancel</Text>
-              </TouchableOpacity>
+              <View style={{ flex: 1 }}><ModalCloseButton label="Cancel" onPress={() => setShowAddDuty(false)} /></View>
               <TouchableOpacity
                 onPress={handleAddDutyOption}
                 disabled={savingDuty}
@@ -1108,19 +1104,7 @@ export default function SettingsScreen() {
               <View style={{ height: 12 }} />
             )}
             <View style={{ flexDirection: "row", gap: 12 }}>
-              <TouchableOpacity
-                onPress={() => { setShowMasterPwModal(false); setMasterPwInput(""); setMasterPwError(""); setPendingAction(null); }}
-                style={{
-                  flex: 1,
-                  paddingVertical: 11,
-                  borderRadius: 10,
-                  alignItems: "center",
-                  borderWidth: 1,
-                  borderColor: "#E5E7EB",
-                }}
-              >
-                <Text style={{ fontWeight: "600", color: "#11181C" }}>Cancel</Text>
-              </TouchableOpacity>
+              <View style={{ flex: 1 }}><ModalCloseButton label="Cancel" onPress={() => { setShowMasterPwModal(false); setMasterPwInput(""); setMasterPwError(""); setPendingAction(null); }} /></View>
               <TouchableOpacity
                 onPress={handleMasterPwConfirm}
                 style={{

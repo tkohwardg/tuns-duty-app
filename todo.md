@@ -109,3 +109,4 @@
 - [x] Remove avatars from Approved Duties date-detail modals
 - [x] Enable background-tap dismissal for all app modals
 - [x] Render all retained avatars with initials from every English name word
+- [x] Standardize all Modal Close and Cancel controls with one visual style

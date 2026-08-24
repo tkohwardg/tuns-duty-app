@@ -34,6 +34,7 @@ import { useColors } from "@/hooks/use-colors";
 import { useSettings } from "@/lib/settings-context";
 import { filterApprovedDutiesByColleague, getFilterableColleagues, getVisibleApprovedDuties, type ApprovedDutyView } from "@/lib/approved-duty-view";
 import { getNameInitials } from "@/lib/avatar-utils";
+import { ModalCloseButton } from "@/components/modal-close-button";
 
 function parseDateStr(dateStr: string): Date {
   const parts = dateStr.split("/");
@@ -671,12 +672,7 @@ export default function ApprovedDutyScreen() {
               )}
               keyExtractor={(item) => item.id || Math.random().toString()}
             />
-            <TouchableOpacity
-              onPress={() => setShowDutyModal(false)}
-              style={{ marginTop: 12, paddingVertical: 10, borderRadius: 12, alignItems: "center", backgroundColor: "#4CAF50" }}
-            >
-              <Text style={{ color: "#fff", fontWeight: "600" }}>Close</Text>
-            </TouchableOpacity>
+            <ModalCloseButton onPress={() => setShowDutyModal(false)} />
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
