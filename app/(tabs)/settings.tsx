@@ -985,7 +985,7 @@ export default function SettingsScreen() {
       <Modal
         visible={showAddDuty}
         transparent
-        animationType="slide"
+        animationType="fade"
         onRequestClose={() => setShowAddDuty(false)}
       >
         <KeyboardAvoidingView
@@ -1126,7 +1126,7 @@ export default function SettingsScreen() {
       <Modal
         visible={showAddUser}
         transparent
-        animationType="slide"
+        animationType="fade"
         onRequestClose={() => setShowAddUser(false)}
       >
         <KeyboardAvoidingView

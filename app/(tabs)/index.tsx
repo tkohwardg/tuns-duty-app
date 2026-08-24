@@ -300,7 +300,7 @@ export default function RequestDutyScreen() {
       <Modal
         visible={showDutyPicker !== null}
         transparent
-        animationType="slide"
+        animationType="fade"
         onRequestClose={() => setShowDutyPicker(null)}
       >
         <View className="flex-1 justify-end" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
