@@ -652,7 +652,7 @@ export default function AdminApproveScreen() {
         </View>
       </View>
 
-      <Modal visible={showPendingFilter} transparent animationType="fade" onRequestClose={() => setShowPendingFilter(false)}><TouchableOpacity activeOpacity={1} onPress={() => setShowPendingFilter(false)} style={{ flex: 1, justifyContent: "center", padding: 28, backgroundColor: "rgba(0,0,0,0.45)" }}><TouchableOpacity activeOpacity={1} onPress={() => {}} style={{ maxHeight: "65%", padding: 16, borderRadius: 16, backgroundColor: "#fff" }}><Text style={{ fontSize: 16, fontWeight: "700", marginBottom: 10 }}>Filter colleague</Text><TouchableOpacity onPress={() => { setPendingStaffId(null); setShowPendingFilter(false); }} style={{ padding: 11, borderRadius: 9, backgroundColor: !pendingStaffId ? "#E8F5E9" : "#F5F5F5", marginBottom: 6 }}><Text style={{ fontWeight: "700" }}>All pending</Text></TouchableOpacity><FlatList data={staffProfiles} keyExtractor={(item) => item.uid} renderItem={({ item }) => <TouchableOpacity onPress={() => { setPendingStaffId(item.uid); setShowPendingFilter(false); }} style={{ padding: 11, borderRadius: 9, backgroundColor: pendingStaffId === item.uid ? "#E8F5E9" : "#F5F5F5", marginBottom: 6 }}><Text style={{ fontWeight: "700" }}>{item.name}</Text></TouchableOpacity>} /></TouchableOpacity></TouchableOpacity></Modal>
+      <Modal visible={showPendingFilter} transparent onRequestClose={() => setShowPendingFilter(false)}><TouchableOpacity activeOpacity={1} onPress={() => setShowPendingFilter(false)} style={{ flex: 1, justifyContent: "center", padding: 28, backgroundColor: "rgba(0,0,0,0.45)" }}><TouchableOpacity activeOpacity={1} onPress={() => {}} style={{ maxHeight: "65%", padding: 16, borderRadius: 16, backgroundColor: "#fff" }}><Text style={{ fontSize: 16, fontWeight: "700", marginBottom: 10 }}>Filter colleague</Text><TouchableOpacity onPress={() => { setPendingStaffId(null); setShowPendingFilter(false); }} style={{ padding: 11, borderRadius: 9, backgroundColor: !pendingStaffId ? "#E8F5E9" : "#F5F5F5", marginBottom: 6 }}><Text style={{ fontWeight: "700" }}>All pending</Text></TouchableOpacity><FlatList data={staffProfiles} keyExtractor={(item) => item.uid} renderItem={({ item }) => <TouchableOpacity onPress={() => { setPendingStaffId(item.uid); setShowPendingFilter(false); }} style={{ padding: 11, borderRadius: 9, backgroundColor: pendingStaffId === item.uid ? "#E8F5E9" : "#F5F5F5", marginBottom: 6 }}><Text style={{ fontWeight: "700" }}>{item.name}</Text></TouchableOpacity>} /></TouchableOpacity></TouchableOpacity></Modal>
       {/* Pending Requests List */}
       <View className="flex-1 mx-3 mt-2 border border-border rounded-xl overflow-hidden"
         style={{ marginBottom: batchMode ? 0 : 8 }}>
@@ -819,7 +819,7 @@ export default function AdminApproveScreen() {
       )}
 
       {/* Approved Duties Modal */}
-      <Modal visible={showDutyModal} transparent animationType="fade" onRequestClose={() => setShowDutyModal(false)}>
+      <Modal visible={showDutyModal} transparent onRequestClose={() => setShowDutyModal(false)}>
         <TouchableOpacity activeOpacity={1} onPress={() => setShowDutyModal(false)} className="flex-1 justify-center px-6" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
           <TouchableOpacity activeOpacity={1} onPress={() => {}} className="bg-background rounded-2xl p-4 max-h-[60%]">
             <Text className="text-lg font-bold text-foreground text-center mb-3">

@@ -252,7 +252,6 @@ export default function MyRequestsScreen() {
       <Modal
         visible={showRejectedModal}
         transparent
-        animationType="fade"
         onRequestClose={() => setShowRejectedModal(false)}
       >
         <View className="flex-1 justify-center px-6" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>

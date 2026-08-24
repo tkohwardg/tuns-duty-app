@@ -986,7 +986,6 @@ export default function SettingsScreen() {
       <Modal
         visible={showAddDuty}
         transparent
-        animationType="fade"
         onRequestClose={() => setShowAddDuty(false)}
       >
         <KeyboardAvoidingView
@@ -1055,7 +1054,6 @@ export default function SettingsScreen() {
       <Modal
         visible={showMasterPwModal}
         transparent
-        animationType="fade"
         onRequestClose={() => { setShowMasterPwModal(false); setMasterPwInput(""); setMasterPwError(""); }}
       >
         <KeyboardAvoidingView
@@ -1127,7 +1125,6 @@ export default function SettingsScreen() {
       <Modal
         visible={showAddUser}
         transparent
-        animationType="fade"
         onRequestClose={() => setShowAddUser(false)}
       >
         <KeyboardAvoidingView

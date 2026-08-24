@@ -268,7 +268,6 @@ export function DatePickerCalendar({
     <Modal
       visible={visible}
       transparent
-      animationType="fade"
       onRequestClose={onClose}
     >
       <View className="flex-1 justify-center px-4" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>

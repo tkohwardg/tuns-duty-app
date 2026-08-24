@@ -624,7 +624,7 @@ export default function ApprovedDutyScreen() {
       </View>
 
       {/* Admin colleague filter — only User Role accounts appear here. */}
-      <Modal visible={showColleagueFilter} transparent animationType="fade" onRequestClose={() => setShowColleagueFilter(false)}>
+      <Modal visible={showColleagueFilter} transparent onRequestClose={() => setShowColleagueFilter(false)}>
         <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 28, backgroundColor: "rgba(0,0,0,0.45)" }}>
           <View style={{ maxHeight: "65%", borderRadius: 16, padding: 16, backgroundColor: colors.background }}>
             <Text style={{ fontSize: 16, fontWeight: "700", color: colors.foreground, marginBottom: 10 }}>Filter colleague</Text>
@@ -650,7 +650,6 @@ export default function ApprovedDutyScreen() {
       <Modal
         visible={showDutyModal}
         transparent
-        animationType="fade"
         onRequestClose={() => setShowDutyModal(false)}
       >
         <TouchableOpacity activeOpacity={1} onPress={() => setShowDutyModal(false)} style={{ flex: 1, justifyContent: "center", paddingHorizontal: 24, backgroundColor: "rgba(0,0,0,0.5)" }}>
