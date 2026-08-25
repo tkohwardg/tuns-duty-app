@@ -114,3 +114,6 @@
 - [x] Add shared temporary success and error toast feedback for key user actions
 - [x] Remove all modal fade transitions and restore immediate presentation
 - [x] Standardize title and list spacing across colleague filter modals
+- [x] Compact the Approved Duty calendar to remove excessive vertical whitespace
+- [x] Add a compact control to expand or shrink the Approved Duty list area
+- [x] Enable background-tap dismissal for all Approved Duty page modals

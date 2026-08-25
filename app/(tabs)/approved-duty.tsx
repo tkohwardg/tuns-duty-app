@@ -62,6 +62,7 @@ export default function ApprovedDutyScreen() {
   const [filterableColleagues, setFilterableColleagues] = useState<UserProfile[]>([]);
   const [selectedColleagueId, setSelectedColleagueId] = useState<string | null>(null);
   const [showColleagueFilter, setShowColleagueFilter] = useState(false);
+  const [isListExpanded, setIsListExpanded] = useState(false);
 
   const loadApproved = useCallback(async () => {
     try {
@@ -358,11 +359,11 @@ export default function ApprovedDutyScreen() {
       }
     }
 
-    // Build rows of 7 — fixed height per row so all rows are equal
+    // Compact rows keep the calendar informative without crowding the duty list.
     for (let i = 0; i < allCells.length; i += 7) {
       const week = allCells.slice(i, i + 7);
       rows.push(
-        <View key={`row-${i}`} style={{ flexDirection: "row", height: 52 }}>
+        <View key={`row-${i}`} style={{ flexDirection: "row", height: 43 }}>
           {week.map((cell, idx) => {
             const isToday =
               isCurrentMonth && !cell.isOverflow && todayDate.getDate() === cell.day;
@@ -383,9 +384,9 @@ export default function ApprovedDutyScreen() {
               >
                 <View
                   style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 16,
+                    width: 28,
+                    height: 28,
+                    borderRadius: 14,
                     alignItems: "center",
                     justifyContent: "center",
                     backgroundColor: isToday ? "#4CAF50" : "transparent",
@@ -393,7 +394,7 @@ export default function ApprovedDutyScreen() {
                 >
                   <Text
                     style={{
-                      fontSize: 13,
+                      fontSize: 12,
                       fontWeight: isToday ? "700" : "400",
                       color: isToday ? "#fff" : cell.isOverflow ? "#9CA3AF" : colors.foreground,
                     }}
@@ -408,8 +409,8 @@ export default function ApprovedDutyScreen() {
                         key={dotIdx}
                         style={{
                           backgroundColor: getDutyColor(r.dutyType),
-                          width: 6,
-                          height: 6,
+                          width: 5,
+                          height: 5,
                           borderRadius: 3,
                           opacity: cell.isOverflow ? 0.5 : 1,
                         }}
@@ -500,10 +501,9 @@ export default function ApprovedDutyScreen() {
         </View>
       </View>
 
-      {/* Calendar — auto-height, takes 2/3 of screen via flex:2 */}
+      {/* Compact calendar leaves the remaining screen height for the duty list. */}
       <View
         style={{
-          flex: 2,
           marginHorizontal: 12,
           marginTop: 8,
           borderWidth: 1,
@@ -592,15 +592,19 @@ export default function ApprovedDutyScreen() {
           </View>
         </View>
 
-        {/* Calendar grid with swipe support — fills remaining space */}
-        <View style={{ flex: 1 }} {...calendarPanResponder.panHandlers}>
-          <View style={{ flex: 1 }}>
-            {renderCalendar()}
-          </View>
-        </View>
+        <TouchableOpacity
+          onPress={() => setIsListExpanded((expanded) => !expanded)}
+          style={{ alignSelf: "flex-end", marginBottom: isListExpanded ? 0 : 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 7, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}
+        >
+          <Text style={{ fontSize: 10, fontWeight: "700", color: colors.muted }}>{isListExpanded ? "Show calendar  ▾" : "More list  ▴"}</Text>
+        </TouchableOpacity>
+
+        {!isListExpanded && (
+          <View {...calendarPanResponder.panHandlers}>{renderCalendar()}</View>
+        )}
       </View>
 
-      {/* Approved List — takes 1/3 of available space */}
+      {/* Approved list expands into the released calendar space. */}
       <View style={{ flex: 1, marginHorizontal: 12, marginTop: 8, marginBottom: 8, borderWidth: 1, borderColor: colors.border, borderRadius: 12, overflow: "hidden" }}>
         {futureApproved.length === 0 ? (
           <FlatList
@@ -625,8 +629,8 @@ export default function ApprovedDutyScreen() {
 
       {/* Admin colleague filter — only User Role accounts appear here. */}
       <Modal visible={showColleagueFilter} transparent onRequestClose={() => setShowColleagueFilter(false)}>
-        <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 28, backgroundColor: "rgba(0,0,0,0.45)" }}>
-          <View style={{ maxHeight: "65%", borderRadius: 16, padding: 20, backgroundColor: colors.background }}>
+        <TouchableOpacity activeOpacity={1} onPress={() => setShowColleagueFilter(false)} style={{ flex: 1, justifyContent: "center", paddingHorizontal: 28, backgroundColor: "rgba(0,0,0,0.45)" }}>
+          <TouchableOpacity activeOpacity={1} onPress={() => {}} style={{ maxHeight: "65%", borderRadius: 16, padding: 20, backgroundColor: colors.background }}>
             <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground, marginBottom: 14 }}>Filter colleague</Text>
             <TouchableOpacity onPress={() => { setSelectedColleagueId(null); setShowColleagueFilter(false); }} style={{ minHeight: 48, justifyContent: "center", paddingHorizontal: 14, borderRadius: 10, backgroundColor: selectedColleagueId === null ? "#E8F5E9" : colors.surface, marginBottom: 8 }}>
               <Text style={{ fontWeight: "700", color: selectedColleagueId === null ? "#2E7D32" : colors.foreground }}>All staff</Text>
@@ -642,8 +646,8 @@ export default function ApprovedDutyScreen() {
                 </TouchableOpacity>
               )}
             />
-          </View>
-        </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
 
       {/* Approved Duties Modal (on date tap) */}
