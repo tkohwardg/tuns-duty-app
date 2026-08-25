@@ -12,6 +12,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useAuthContext } from "@/lib/auth-context";
 import { useSettings } from "@/lib/settings-context";
 import { router } from "expo-router";
+import { completeHospitalEmailDomain } from "@/lib/hospital-email";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -82,17 +83,25 @@ export default function LoginScreen() {
               <Text className="text-sm font-medium text-foreground mb-1">
                 Hospital Email
               </Text>
-              <TextInput
-                className="border border-border rounded-xl px-4 py-3 text-base text-foreground bg-surface"
-                placeholder="Enter your hospital email"
-                placeholderTextColor="#9BA1A6"
-                value={email}
-                onChangeText={(t) => { setEmail(t); setErrorMessage(""); }}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                returnKeyType="next"
-              />
+              <View style={{ position: "relative" }}>
+                <TextInput
+                  className="border border-border rounded-xl px-4 py-3 text-base text-foreground bg-surface"
+                  style={{ paddingRight: 96 }}
+                  placeholder="Enter your hospital email"
+                  placeholderTextColor="#9BA1A6"
+                  value={email}
+                  onChangeText={(t) => { setEmail(completeHospitalEmailDomain(t)); setErrorMessage(""); }}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  returnKeyType="next"
+                />
+                {!email.includes("@") && (
+                  <View pointerEvents="none" style={{ position: "absolute", right: 16, top: 0, bottom: 0, justifyContent: "center" }}>
+                    <Text style={{ color: "#C4C7CC", fontSize: 14 }}>@ha.org.hk</Text>
+                  </View>
+                )}
+              </View>
             </View>
 
             <View>

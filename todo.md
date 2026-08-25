@@ -117,3 +117,4 @@
 - [x] Compact the Approved Duty calendar to remove excessive vertical whitespace
 - [x] Add a compact control to expand or shrink the Approved Duty list area
 - [x] Enable background-tap dismissal for all Approved Duty page modals
+- [x] Add a ha.org.hk visual hint and automatic domain completion to Hospital Email login input
