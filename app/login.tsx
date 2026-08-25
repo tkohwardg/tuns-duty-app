@@ -12,7 +12,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useAuthContext } from "@/lib/auth-context";
 import { useSettings } from "@/lib/settings-context";
 import { router } from "expo-router";
-import { completeHospitalEmailDomain } from "@/lib/hospital-email";
+import { completeHospitalEmailDomain, isHospitalEmail } from "@/lib/hospital-email";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -26,6 +26,10 @@ export default function LoginScreen() {
     setErrorMessage("");
     if (!email.trim() || !password.trim()) {
       setErrorMessage("Please enter both email and password.");
+      return;
+    }
+    if (!isHospitalEmail(email)) {
+      setErrorMessage("Please use your Hospital Authority email ending in @ha.org.hk.");
       return;
     }
     setIsLoading(true);
