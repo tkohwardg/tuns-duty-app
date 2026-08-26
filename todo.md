@@ -125,3 +125,4 @@
 - [x] Mark delegated requests as Submitted by Admin in My Requests
 - [x] Add an Admin-only delegation note field to Request Duty submissions
 - [x] Fix Admin delegated duty submission failure and ensure the recipient notification is created
+- [x] Complete root-cause investigation and verified fix for persistent Admin delegated request failure

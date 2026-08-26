@@ -18,8 +18,6 @@ import { addDutyRequest, checkDuplicateRequest, createAppNotification, getAllUse
 import { submitToGoogleSheet } from "@/lib/google-sheets";
 import { DatePickerCalendar } from "@/components/date-picker-calendar";
 import { getRequestDateEligibility } from "@/lib/request-date-eligibility";
-import { trpc } from "@/lib/trpc";
-import { getAuth } from "firebase/auth";
 
 interface RequestRow {
   date: Date | null;
@@ -58,7 +56,6 @@ export default function RequestDutyScreen() {
   const [selectedDelegateId, setSelectedDelegateId] = useState<string | null>(null);
   const [showDelegatePicker, setShowDelegatePicker] = useState(false);
   const [delegationNote, setDelegationNote] = useState("");
-  const delegatedDutyMutation = trpc.admin.createDelegatedDuty.useMutation();
   const dateEligibility = getRequestDateEligibility(isAdmin);
 
   useEffect(() => {
@@ -172,19 +169,6 @@ export default function RequestDutyScreen() {
       for (const req of validRequests) {
         if (!req.date || !req.dutyType) continue;
 
-        if (isAdmin && selectedDelegateId) {
-          const idToken = await getAuth().currentUser?.getIdToken();
-          if (!idToken) throw new Error("Unable to verify Admin session.");
-          await delegatedDutyMutation.mutateAsync({
-            idToken,
-            targetUid: requestFor.uid,
-            date: formatDate(req.date),
-            dutyType: req.dutyType,
-            delegationNote: delegationNote.trim() || undefined,
-          });
-          continue;
-        }
-
         const dutyRequest = {
           userId: requestFor.uid,
           userName: requestFor.name,
@@ -192,10 +176,28 @@ export default function RequestDutyScreen() {
           date: formatDate(req.date),
           dutyType: req.dutyType,
           status: "pending" as const,
+          ...(isAdmin && selectedDelegateId && userProfile ? {
+            submittedByAdmin: true,
+            submittedByUid: userProfile.uid,
+            submittedByName: userProfile.name,
+            delegationNote: delegationNote.trim(),
+          } : {}),
         };
 
         const docRef = await addDutyRequest(dutyRequest);
-
+        if (isAdmin && selectedDelegateId && userProfile) {
+          const note = delegationNote.trim();
+          try {
+            await createAppNotification({
+              recipientId: requestFor.uid,
+              requestId: docRef.id,
+              title: "Duty request submitted by Admin",
+              message: `${userProfile.name} submitted ${req.dutyType} on ${formatDate(req.date)} for you.${note ? ` Note: ${note}` : ""}`,
+            });
+          } catch (notificationError) {
+            console.warn("Duty request created but recipient notification was not created:", notificationError);
+          }
+        }
 
         await submitToGoogleSheet({
           ...dutyRequest,
@@ -211,7 +213,10 @@ export default function RequestDutyScreen() {
       setDelegationNote("");
     } catch (error) {
       console.error("Submit error:", error);
-      Alert.alert("Error", "Failed to submit request. Please try again.");
+      const message = error instanceof Error ? error.message : "Failed to submit request. Please try again.";
+      Alert.alert("Error", message.includes("permission")
+        ? "Permission denied. Please publish the latest Firestore Security Rules before using Admin delegated requests."
+        : message);
     } finally {
       setIsSubmitting(false);
     }
