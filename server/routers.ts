@@ -3,7 +3,7 @@ import { COOKIE_NAME } from "../shared/const.js";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
-import { deleteAuthUser, verifyFirebaseIdToken } from "./firebase-admin.js";
+import { createDelegatedDutyRequest, deleteAuthUser, verifyFirebaseIdToken } from "./firebase-admin.js";
 
 export const appRouter = router({
   // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -58,6 +58,12 @@ export const appRouter = router({
           const message = err instanceof Error ? err.message : "Unknown error";
           return { success: false, error: `Failed to delete auth account: ${message}` } as const;
         }
+      }),
+    createDelegatedDuty: publicProcedure
+      .input(z.object({ idToken: z.string().min(1), targetUid: z.string().min(1), date: z.string().min(1), dutyType: z.string().min(1), delegationNote: z.string().max(240).optional() }))
+      .mutation(async ({ input }) => {
+        const decoded = await verifyFirebaseIdToken(input.idToken);
+        return createDelegatedDutyRequest({ adminUid: decoded.uid, targetUid: input.targetUid, date: input.date, dutyType: input.dutyType, delegationNote: input.delegationNote });
       }),
   }),
 });

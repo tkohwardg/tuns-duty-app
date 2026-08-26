@@ -124,3 +124,4 @@
 - [x] Create an in-app notification for the selected User when an Admin submits a duty request on their behalf
 - [x] Mark delegated requests as Submitted by Admin in My Requests
 - [x] Add an Admin-only delegation note field to Request Duty submissions
+- [x] Fix Admin delegated duty submission failure and ensure the recipient notification is created

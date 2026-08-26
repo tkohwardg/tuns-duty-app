@@ -18,6 +18,8 @@ import { addDutyRequest, checkDuplicateRequest, createAppNotification, getAllUse
 import { submitToGoogleSheet } from "@/lib/google-sheets";
 import { DatePickerCalendar } from "@/components/date-picker-calendar";
 import { getRequestDateEligibility } from "@/lib/request-date-eligibility";
+import { trpc } from "@/lib/trpc";
+import { getAuth } from "firebase/auth";
 
 interface RequestRow {
   date: Date | null;
@@ -56,6 +58,7 @@ export default function RequestDutyScreen() {
   const [selectedDelegateId, setSelectedDelegateId] = useState<string | null>(null);
   const [showDelegatePicker, setShowDelegatePicker] = useState(false);
   const [delegationNote, setDelegationNote] = useState("");
+  const delegatedDutyMutation = trpc.admin.createDelegatedDuty.useMutation();
   const dateEligibility = getRequestDateEligibility(isAdmin);
 
   useEffect(() => {
@@ -169,6 +172,19 @@ export default function RequestDutyScreen() {
       for (const req of validRequests) {
         if (!req.date || !req.dutyType) continue;
 
+        if (isAdmin && selectedDelegateId) {
+          const idToken = await getAuth().currentUser?.getIdToken();
+          if (!idToken) throw new Error("Unable to verify Admin session.");
+          await delegatedDutyMutation.mutateAsync({
+            idToken,
+            targetUid: requestFor.uid,
+            date: formatDate(req.date),
+            dutyType: req.dutyType,
+            delegationNote: delegationNote.trim() || undefined,
+          });
+          continue;
+        }
+
         const dutyRequest = {
           userId: requestFor.uid,
           userName: requestFor.name,
@@ -176,25 +192,10 @@ export default function RequestDutyScreen() {
           date: formatDate(req.date),
           dutyType: req.dutyType,
           status: "pending" as const,
-          ...(isAdmin && selectedDelegateId && userProfile ? {
-            submittedByAdmin: true,
-            submittedByUid: userProfile.uid,
-            submittedByName: userProfile.name,
-            delegationNote: delegationNote.trim(),
-          } : {}),
         };
 
         const docRef = await addDutyRequest(dutyRequest);
 
-        if (isAdmin && selectedDelegateId && userProfile) {
-          const noteSuffix = delegationNote.trim() ? ` Note: ${delegationNote.trim()}` : "";
-          await createAppNotification({
-            recipientId: requestFor.uid,
-            requestId: docRef.id,
-            title: "Duty request submitted by Admin",
-            message: `${userProfile.name} submitted ${req.dutyType} on ${formatDate(req.date)} for you.${noteSuffix}`,
-          });
-        }
 
         await submitToGoogleSheet({
           ...dutyRequest,

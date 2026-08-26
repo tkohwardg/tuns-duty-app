@@ -9,6 +9,7 @@
  */
 import { initializeApp, getApps, cert, type App } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
+import { FieldValue, getFirestore } from "firebase-admin/firestore";
 
 let adminApp: App | null = null;
 
@@ -64,4 +65,57 @@ export async function deleteAuthUser(uid: string): Promise<void> {
 export async function verifyFirebaseIdToken(idToken: string) {
   const app = getAdminApp();
   return getAuth(app).verifyIdToken(idToken);
+}
+
+export async function createDelegatedDutyRequest(input: {
+  adminUid: string;
+  targetUid: string;
+  date: string;
+  dutyType: string;
+  delegationNote?: string;
+}) {
+  const db = getFirestore(getAdminApp());
+  const [adminSnapshot, targetSnapshot] = await Promise.all([
+    db.collection("users").doc(input.adminUid).get(),
+    db.collection("users").doc(input.targetUid).get(),
+  ]);
+  const admin = adminSnapshot.data();
+  const target = targetSnapshot.data();
+  if (!admin || admin.role !== "admin") throw new Error("Only Admin users can submit delegated requests.");
+  if (!target || target.role !== "user") throw new Error("Delegated requests can only target User Role accounts.");
+
+  const existing = await db.collection("duty_requests")
+    .where("userId", "==", input.targetUid)
+    .where("date", "==", input.date)
+    .where("dutyType", "==", input.dutyType)
+    .where("status", "in", ["pending", "approved"])
+    .limit(1)
+    .get();
+  if (!existing.empty) throw new Error("This duty is already pending or approved for the selected colleague.");
+
+  const requestRef = db.collection("duty_requests").doc();
+  const note = input.delegationNote?.trim() || "";
+  await requestRef.set({
+    userId: input.targetUid,
+    userName: target.name,
+    userEmail: target.email,
+    date: input.date,
+    dutyType: input.dutyType,
+    status: "pending",
+    submittedByAdmin: true,
+    submittedByUid: input.adminUid,
+    submittedByName: admin.name,
+    delegationNote: note,
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  await db.collection("notifications").add({
+    recipientId: input.targetUid,
+    requestId: requestRef.id,
+    title: "Duty request submitted by Admin",
+    message: `${admin.name} submitted ${input.dutyType} on ${input.date} for you.${note ? ` Note: ${note}` : ""}`,
+    read: false,
+    createdAt: FieldValue.serverTimestamp(),
+  });
+  return { requestId: requestRef.id };
 }
