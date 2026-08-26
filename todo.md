@@ -126,3 +126,4 @@
 - [x] Add an Admin-only delegation note field to Request Duty submissions
 - [x] Fix Admin delegated duty submission failure and ensure the recipient notification is created
 - [x] Complete root-cause investigation and verified fix for persistent Admin delegated request failure
+- [x] Remove automatic @ha.org.hk completion from the Hospital Email input

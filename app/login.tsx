@@ -12,7 +12,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useAuthContext } from "@/lib/auth-context";
 import { useSettings } from "@/lib/settings-context";
 import { router } from "expo-router";
-import { completeHospitalEmailDomain, isHospitalEmail } from "@/lib/hospital-email";
+import { isHospitalEmail } from "@/lib/hospital-email";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -94,7 +94,7 @@ export default function LoginScreen() {
                   placeholder="Enter your hospital email"
                   placeholderTextColor="#9BA1A6"
                   value={email}
-                  onChangeText={(t) => { setEmail(completeHospitalEmailDomain(t)); setErrorMessage(""); }}
+                  onChangeText={(t) => { setEmail(t); setErrorMessage(""); }}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
