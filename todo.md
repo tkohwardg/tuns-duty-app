@@ -127,3 +127,4 @@
 - [x] Fix Admin delegated duty submission failure and ensure the recipient notification is created
 - [x] Complete root-cause investigation and verified fix for persistent Admin delegated request failure
 - [x] Remove automatic @ha.org.hk completion from the Hospital Email input
+- [x] Show selected colleague Sunday-to-Saturday approved hours when Admin taps an Approved Duty row
