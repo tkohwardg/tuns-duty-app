@@ -69,6 +69,7 @@ export const onAuthChange = (callback: (user: User | null) => void) => {
 export const COLLECTIONS = {
   USERS: "users",
   DUTY_REQUESTS: "duty_requests",
+  NOTIFICATIONS: "notifications",
   APP_CONFIG: "app_config",
 } as const;
 
@@ -117,6 +118,20 @@ export interface DutyRequest {
   status: RequestStatus;
   createdAt: Timestamp;
   updatedAt: Timestamp;
+  submittedByAdmin?: boolean;
+  submittedByUid?: string;
+  submittedByName?: string;
+  delegationNote?: string;
+}
+
+export interface AppNotification {
+  id?: string;
+  recipientId: string;
+  title: string;
+  message: string;
+  requestId: string;
+  read: boolean;
+  createdAt: Timestamp;
 }
 
 export interface UserProfile {
@@ -143,6 +158,24 @@ export const addDutyRequest = async (request: Omit<DutyRequest, "id" | "createdA
     updatedAt: now,
   });
 };
+
+export const createAppNotification = async (
+  notification: Omit<AppNotification, "id" | "createdAt" | "read">
+) => addDoc(collection(db, COLLECTIONS.NOTIFICATIONS), {
+  ...notification,
+  read: false,
+  createdAt: Timestamp.now(),
+});
+
+export const getUserNotifications = async (recipientId: string) => {
+  const snapshot = await getDocs(query(collection(db, COLLECTIONS.NOTIFICATIONS), where("recipientId", "==", recipientId)));
+  return snapshot.docs
+    .map((item) => ({ id: item.id, ...item.data() } as AppNotification))
+    .sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+};
+
+export const markNotificationRead = async (notificationId: string) =>
+  updateDoc(doc(db, COLLECTIONS.NOTIFICATIONS, notificationId), { read: true });
 
 export const updateDutyRequestStatus = async (requestId: string, status: RequestStatus) => {
   const docRef = doc(db, COLLECTIONS.DUTY_REQUESTS, requestId);

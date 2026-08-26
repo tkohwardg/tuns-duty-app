@@ -162,6 +162,9 @@ export default function MyRequestsScreen() {
             {item.userName}
           </Text>
           <Text className="text-sm text-muted">{item.date}</Text>
+          {item.submittedByAdmin && (
+            <Text className="text-xs font-semibold mt-1" style={{ color: "#7C3AED" }}>Submitted by Admin{item.submittedByName ? ` · ${item.submittedByName}` : ""}</Text>
+          )}
         </View>
         <Text className="text-base font-medium text-foreground ml-2">
           {item.dutyType}
@@ -177,10 +180,13 @@ export default function MyRequestsScreen() {
         style={{ backgroundColor: userProfile?.avatarColor ?? "#E9D1DB", alignItems: "center", justifyContent: "center" }}
       ><Text className="font-bold text-slate-600">{getNameInitials(item.userName)}</Text></View>
       <View className="flex-1">
-        <Text className="text-base font-bold text-foreground" numberOfLines={1}>
-          {item.userName}
-        </Text>
-        <Text className="text-sm text-muted">{item.date}</Text>
+          <Text className="text-base font-bold text-foreground" numberOfLines={1}>
+            {item.userName}
+          </Text>
+          <Text className="text-sm text-muted">{item.date}</Text>
+          {item.submittedByAdmin && (
+            <Text className="text-xs font-semibold mt-1" style={{ color: "#7C3AED" }}>Submitted by Admin{item.submittedByName ? ` · ${item.submittedByName}` : ""}</Text>
+          )}
       </View>
       <Text className="text-base font-medium text-foreground ml-2">
         {item.dutyType}

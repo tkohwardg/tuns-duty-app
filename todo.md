@@ -121,3 +121,6 @@
 - [x] Validate that Hospital Email login submissions end with @ha.org.hk
 - [x] Allow Admins to select a User Role colleague and submit a duty request on their behalf
 - [x] Use next-day through eight-weeks date eligibility for Admin requests while preserving User restrictions
+- [x] Create an in-app notification for the selected User when an Admin submits a duty request on their behalf
+- [x] Mark delegated requests as Submitted by Admin in My Requests
+- [x] Add an Admin-only delegation note field to Request Duty submissions

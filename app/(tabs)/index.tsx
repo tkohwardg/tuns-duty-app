@@ -8,12 +8,13 @@ import {
   ScrollView,
   Modal,
   ActivityIndicator,
+  TextInput,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useAuthContext } from "@/lib/auth-context";
 import { useSettings } from "@/lib/settings-context";
 import { router } from "expo-router";
-import { addDutyRequest, checkDuplicateRequest, getAllUsers, type DutyType, type UserProfile } from "@/lib/firebase";
+import { addDutyRequest, checkDuplicateRequest, createAppNotification, getAllUsers, type DutyType, type UserProfile } from "@/lib/firebase";
 import { submitToGoogleSheet } from "@/lib/google-sheets";
 import { DatePickerCalendar } from "@/components/date-picker-calendar";
 import { getRequestDateEligibility } from "@/lib/request-date-eligibility";
@@ -54,6 +55,7 @@ export default function RequestDutyScreen() {
   const [delegateUsers, setDelegateUsers] = useState<UserProfile[]>([]);
   const [selectedDelegateId, setSelectedDelegateId] = useState<string | null>(null);
   const [showDelegatePicker, setShowDelegatePicker] = useState(false);
+  const [delegationNote, setDelegationNote] = useState("");
   const dateEligibility = getRequestDateEligibility(isAdmin);
 
   useEffect(() => {
@@ -174,9 +176,25 @@ export default function RequestDutyScreen() {
           date: formatDate(req.date),
           dutyType: req.dutyType,
           status: "pending" as const,
+          ...(isAdmin && selectedDelegateId && userProfile ? {
+            submittedByAdmin: true,
+            submittedByUid: userProfile.uid,
+            submittedByName: userProfile.name,
+            delegationNote: delegationNote.trim(),
+          } : {}),
         };
 
         const docRef = await addDutyRequest(dutyRequest);
+
+        if (isAdmin && selectedDelegateId && userProfile) {
+          const noteSuffix = delegationNote.trim() ? ` Note: ${delegationNote.trim()}` : "";
+          await createAppNotification({
+            recipientId: requestFor.uid,
+            requestId: docRef.id,
+            title: "Duty request submitted by Admin",
+            message: `${userProfile.name} submitted ${req.dutyType} on ${formatDate(req.date)} for you.${noteSuffix}`,
+          });
+        }
 
         await submitToGoogleSheet({
           ...dutyRequest,
@@ -189,6 +207,7 @@ export default function RequestDutyScreen() {
       // Clear all slots after submission
       setRequests(INITIAL_REQUESTS.map((r) => ({ ...r })));
       setRowErrors([null, null, null, null, null]);
+      setDelegationNote("");
     } catch (error) {
       console.error("Submit error:", error);
       Alert.alert("Error", "Failed to submit request. Please try again.");
@@ -243,6 +262,21 @@ export default function RequestDutyScreen() {
                 </View>
                 <Text className="text-muted">⌄</Text>
               </TouchableOpacity>
+            </View>
+          )}
+          {isAdmin && selectedDelegateId && (
+            <View className="mt-3">
+              <Text className="text-base font-bold text-foreground mb-1">Admin note <Text className="text-muted font-normal">(optional)</Text></Text>
+              <TextInput
+                value={delegationNote}
+                onChangeText={setDelegationNote}
+                placeholder="Add a note for this colleague"
+                placeholderTextColor="#9BA1A6"
+                multiline
+                maxLength={240}
+                className="border border-border rounded-xl px-4 py-3 text-base text-foreground bg-surface"
+                style={{ minHeight: 76, textAlignVertical: "top" }}
+              />
             </View>
           )}
         </View>

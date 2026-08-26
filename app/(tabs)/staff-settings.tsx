@@ -12,6 +12,8 @@ import {
 import { ScreenContainer } from "@/components/screen-container";
 import { useAuthContext } from "@/lib/auth-context";
 import { getAuth, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
+import { getUserNotifications, markNotificationRead, type AppNotification } from "@/lib/firebase";
+import { useEffect } from "react";
 
 export default function StaffSettingsScreen() {
   const { userProfile, user, logout } = useAuthContext();
@@ -21,6 +23,22 @@ export default function StaffSettingsScreen() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [savingPassword, setSavingPassword] = useState(false);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+
+  const loadNotifications = async () => {
+    if (!userProfile?.uid) return;
+    try { setNotifications(await getUserNotifications(userProfile.uid)); } catch (error) { console.error("Unable to load notifications:", error); }
+  };
+
+  useEffect(() => { loadNotifications(); }, [userProfile?.uid]);
+
+  const openNotification = async (notification: AppNotification) => {
+    if (notification.id && !notification.read) {
+      await markNotificationRead(notification.id);
+      setNotifications((items) => items.map((item) => item.id === notification.id ? { ...item, read: true } : item));
+    }
+    showAlert(notification.title, notification.message);
+  };
 
   const showAlert = (title: string, message: string) => {
     if (Platform.OS === "web") window.alert(`${title}: ${message}`);
@@ -109,6 +127,22 @@ export default function StaffSettingsScreen() {
           >
             <Text style={{ color: "#fff", fontWeight: "700", fontSize: 13 }}>Logout</Text>
           </TouchableOpacity>
+        </View>
+
+        {/* Admin-submitted duty notifications */}
+        <View className="mx-4 mt-4 p-4 bg-surface rounded-xl border border-border">
+          <View className="flex-row items-center justify-between mb-3">
+            <Text className="text-base font-bold text-foreground">Notifications</Text>
+            {notifications.some((notification) => !notification.read) && <View style={{ backgroundColor: "#EF4444", borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 }}><Text style={{ color: "#fff", fontSize: 11, fontWeight: "700" }}>{notifications.filter((notification) => !notification.read).length} new</Text></View>}
+          </View>
+          {notifications.length === 0 ? (
+            <Text className="text-sm text-muted">No notifications yet</Text>
+          ) : notifications.slice(0, 5).map((notification) => (
+            <TouchableOpacity key={notification.id} onPress={() => openNotification(notification)} className="rounded-lg p-3 mb-2" style={{ backgroundColor: notification.read ? "#FFFFFF" : "#E8F5E9" }}>
+              <Text className="text-sm font-bold text-foreground">{notification.title}</Text>
+              <Text className="text-xs text-muted mt-1" numberOfLines={2}>{notification.message}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         {/* Change Password */}
