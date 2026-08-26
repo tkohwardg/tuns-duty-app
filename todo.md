@@ -128,3 +128,4 @@
 - [x] Complete root-cause investigation and verified fix for persistent Admin delegated request failure
 - [x] Remove automatic @ha.org.hk completion from the Hospital Email input
 - [x] Show selected colleague Sunday-to-Saturday approved hours when Admin taps an Approved Duty row
+- [x] Calculate Admin selected-row hours using the selected request date's Sunday-to-Saturday week

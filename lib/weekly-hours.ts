@@ -6,13 +6,18 @@ function parseDutyDate(value: string) {
   return new Date(year, month - 1, day);
 }
 
+export function getSundaySaturdayRange(referenceDate: Date) {
+  const start = new Date(referenceDate);
+  start.setDate(referenceDate.getDate() - referenceDate.getDay());
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
+}
+
 export function calculateSundaySaturdayHours(duties: WeekDuty[], dutyOptions: DutyOption[], referenceDate: Date, userId?: string | null) {
-  const weekStart = new Date(referenceDate);
-  weekStart.setDate(referenceDate.getDate() - referenceDate.getDay());
-  weekStart.setHours(0, 0, 0, 0);
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekStart.getDate() + 6);
-  weekEnd.setHours(23, 59, 59, 999);
+  const { start: weekStart, end: weekEnd } = getSundaySaturdayRange(referenceDate);
   return duties
     .filter((duty) => !userId || duty.userId === userId)
     .filter((duty) => { const date = parseDutyDate(duty.date); return date >= weekStart && date <= weekEnd; })

@@ -35,7 +35,7 @@ import { useSettings } from "@/lib/settings-context";
 import { filterApprovedDutiesByColleague, getFilterableColleagues, getVisibleApprovedDuties, type ApprovedDutyView } from "@/lib/approved-duty-view";
 import { getNameInitials } from "@/lib/avatar-utils";
 import { ModalCloseButton } from "@/components/modal-close-button";
-import { calculateSundaySaturdayHours } from "@/lib/weekly-hours";
+import { calculateSundaySaturdayHours, getSundaySaturdayRange } from "@/lib/weekly-hours";
 
 function parseDateStr(dateStr: string): Date {
   const parts = dateStr.split("/");
@@ -64,7 +64,7 @@ export default function ApprovedDutyScreen() {
   const [selectedColleagueId, setSelectedColleagueId] = useState<string | null>(null);
   const [showColleagueFilter, setShowColleagueFilter] = useState(false);
   const [isListExpanded, setIsListExpanded] = useState(false);
-  const [selectedWeeklyHoursUserId, setSelectedWeeklyHoursUserId] = useState<string | null>(null);
+  const [selectedWeeklyHoursRequest, setSelectedWeeklyHoursRequest] = useState<DutyRequest | null>(null);
 
   const loadApproved = useCallback(async () => {
     try {
@@ -112,9 +112,16 @@ export default function ApprovedDutyScreen() {
   );
 
   const selectedWeeklyHoursName = useMemo(
-    () => approvedRequests.find((request) => request.userId === selectedWeeklyHoursUserId)?.userName ?? null,
-    [approvedRequests, selectedWeeklyHoursUserId],
+    () => selectedWeeklyHoursRequest?.userName ?? null,
+    [selectedWeeklyHoursRequest],
   );
+
+  const selectedWeekLabel = useMemo(() => {
+    if (!selectedWeeklyHoursRequest) return "This week (Sun-Sat): ";
+    const { start, end } = getSundaySaturdayRange(parseDateStr(selectedWeeklyHoursRequest.date));
+    const format = (date: Date) => `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+    return `${selectedWeeklyHoursRequest.userName} · ${format(start)}–${format(end)}: `;
+  }, [selectedWeeklyHoursRequest]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -169,8 +176,8 @@ export default function ApprovedDutyScreen() {
   const weeklyHours = calculateSundaySaturdayHours(
     isAdmin ? approvedRequests : approvedRequests.filter((request) => request.userId === (user?.uid ?? userProfile?.uid)),
     settings.dutyOptions,
-    new Date(),
-    isAdmin ? selectedWeeklyHoursUserId : user?.uid ?? userProfile?.uid,
+    isAdmin && selectedWeeklyHoursRequest ? parseDateStr(selectedWeeklyHoursRequest.date) : new Date(),
+    isAdmin ? selectedWeeklyHoursRequest?.userId : user?.uid ?? userProfile?.uid,
   );
 
   const isOverLimit = weeklyHours >= 14;
@@ -412,7 +419,7 @@ export default function ApprovedDutyScreen() {
   const renderApprovedItem = ({ item }: { item: DutyRequest }) => {
     const avatarColor = filterableColleagues.find((profile) => profile.uid === item.userId)?.avatarColor ?? (item.userId === (user?.uid ?? userProfile?.uid) ? userProfile?.avatarColor : undefined) ?? "#E9D1DB";
     const content = (
-      <TouchableOpacity onPress={() => isAdmin && setSelectedWeeklyHoursUserId((current) => current === item.userId ? null : item.userId)} activeOpacity={isAdmin ? 0.72 : 1} style={{ flexDirection: "row", alignItems: "center", paddingVertical: 12, paddingHorizontal: 16, backgroundColor: isAdmin && selectedWeeklyHoursUserId === item.userId ? "#E8F5E9" : colors.background, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+      <TouchableOpacity onPress={() => isAdmin && setSelectedWeeklyHoursRequest((current) => current?.id === item.id ? null : item)} activeOpacity={isAdmin ? 0.72 : 1} style={{ flexDirection: "row", alignItems: "center", paddingVertical: 12, paddingHorizontal: 16, backgroundColor: isAdmin && selectedWeeklyHoursRequest?.id === item.id ? "#E8F5E9" : colors.background, borderBottomWidth: 1, borderBottomColor: colors.border }}>
         <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: avatarColor, marginRight: 12, alignItems: "center", justifyContent: "center" }}><Text style={{ fontWeight: "700", color: "#475569" }}>{getNameInitials(item.userName)}</Text></View>
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground }} numberOfLines={1}>
@@ -460,7 +467,7 @@ export default function ApprovedDutyScreen() {
           </Text>
         )}
         <View style={{ flexDirection: "row", alignItems: "center", marginTop: 4 }}>
-          <Text style={{ fontSize: 12, color: colors.muted }}>{isAdmin && selectedWeeklyHoursName ? `${selectedWeeklyHoursName} · This week (Sun-Sat): ` : "This week (Sun-Sat): "}</Text>
+          <Text style={{ fontSize: 12, color: colors.muted }}>{isAdmin && selectedWeeklyHoursName ? selectedWeekLabel : "This week (Sun-Sat): "}</Text>
           <Text
             style={{
               fontSize: 12,
