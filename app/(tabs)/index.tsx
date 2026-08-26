@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useEffect } from "react";
 import {
   Text,
   View,
@@ -12,9 +13,10 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useAuthContext } from "@/lib/auth-context";
 import { useSettings } from "@/lib/settings-context";
 import { router } from "expo-router";
-import { addDutyRequest, checkDuplicateRequest, type DutyType } from "@/lib/firebase";
+import { addDutyRequest, checkDuplicateRequest, getAllUsers, type DutyType, type UserProfile } from "@/lib/firebase";
 import { submitToGoogleSheet } from "@/lib/google-sheets";
 import { DatePickerCalendar } from "@/components/date-picker-calendar";
+import { getRequestDateEligibility } from "@/lib/request-date-eligibility";
 
 interface RequestRow {
   date: Date | null;
@@ -39,7 +41,7 @@ const INITIAL_REQUESTS: RequestRow[] = [
 ];
 
 export default function RequestDutyScreen() {
-  const { userProfile, logout } = useAuthContext();
+  const { userProfile, logout, isAdmin } = useAuthContext();
   const { settings } = useSettings();
   const dutyOptions = settings.dutyOptions.map((o) => o.label);
   const [requests, setRequests] = useState<RequestRow[]>(
@@ -49,6 +51,21 @@ export default function RequestDutyScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState<number | null>(null);
   const [showDutyPicker, setShowDutyPicker] = useState<number | null>(null);
+  const [delegateUsers, setDelegateUsers] = useState<UserProfile[]>([]);
+  const [selectedDelegateId, setSelectedDelegateId] = useState<string | null>(null);
+  const [showDelegatePicker, setShowDelegatePicker] = useState(false);
+  const dateEligibility = getRequestDateEligibility(isAdmin);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    getAllUsers()
+      .then((users) => setDelegateUsers(users.filter((candidate) => candidate.role === "user").sort((a, b) => a.name.localeCompare(b.name))))
+      .catch((error) => console.error("Unable to load delegation users:", error));
+  }, [isAdmin]);
+
+  const requestFor = selectedDelegateId
+    ? delegateUsers.find((candidate) => candidate.uid === selectedDelegateId) ?? userProfile
+    : userProfile;
 
   const handleReset = (index: number) => {
     const updated = [...requests];
@@ -111,7 +128,7 @@ export default function RequestDutyScreen() {
       return;
     }
 
-    if (!userProfile) {
+    if (!requestFor) {
       Alert.alert("Error", "User profile not found. Please login again.");
       return;
     }
@@ -126,7 +143,7 @@ export default function RequestDutyScreen() {
         if (!req.date || !req.dutyType) continue;
         const dateStr = formatDate(req.date);
         const isDuplicate = await checkDuplicateRequest(
-          userProfile.uid,
+          requestFor.uid,
           dateStr,
           req.dutyType
         );
@@ -151,9 +168,9 @@ export default function RequestDutyScreen() {
         if (!req.date || !req.dutyType) continue;
 
         const dutyRequest = {
-          userId: userProfile.uid,
-          userName: userProfile.name,
-          userEmail: userProfile.email,
+          userId: requestFor.uid,
+          userName: requestFor.name,
+          userEmail: requestFor.email,
           date: formatDate(req.date),
           dutyType: req.dutyType,
           status: "pending" as const,
@@ -168,7 +185,7 @@ export default function RequestDutyScreen() {
         });
       }
 
-      Alert.alert("Success", "Your duty request(s) have been submitted.");
+      Alert.alert("Success", `Duty request(s) submitted for ${requestFor.name}.`);
       // Clear all slots after submission
       setRequests(INITIAL_REQUESTS.map((r) => ({ ...r })));
       setRowErrors([null, null, null, null, null]);
@@ -213,6 +230,21 @@ export default function RequestDutyScreen() {
               {userProfile?.name || "Loading..."}
             </Text>
           </View>
+          {isAdmin && (
+            <View className="mt-3">
+              <Text className="text-base font-bold text-foreground mb-1">Request for</Text>
+              <TouchableOpacity
+                onPress={() => setShowDelegatePicker(true)}
+                className="flex-row items-center justify-between border border-border rounded-xl px-4 py-3 bg-surface"
+              >
+                <View>
+                  <Text className="text-base font-semibold text-foreground">{selectedDelegateId ? requestFor?.name : "Myself"}</Text>
+                  <Text className="text-xs text-muted mt-0.5">{selectedDelegateId ? "Submitting for selected User Role colleague" : "Submitting for your own account"}</Text>
+                </View>
+                <Text className="text-muted">⌄</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         {/* Request Rows (5 slots) */}
@@ -294,7 +326,19 @@ export default function RequestDutyScreen() {
         }}
         selectedDate={showDatePicker !== null ? requests[showDatePicker].date : null}
         title="Select Date"
+        minDaysAhead={dateEligibility.minDaysAhead}
+        restrictMonthlyWindow={dateEligibility.restrictMonthlyWindow}
       />
+
+      <Modal visible={showDelegatePicker} transparent onRequestClose={() => setShowDelegatePicker(false)}>
+        <TouchableOpacity activeOpacity={1} onPress={() => setShowDelegatePicker(false)} className="flex-1 justify-center px-7" style={{ backgroundColor: "rgba(0,0,0,0.45)" }}>
+          <TouchableOpacity activeOpacity={1} onPress={() => {}} className="bg-background rounded-2xl p-5" style={{ maxHeight: "65%" }}>
+            <Text className="text-lg font-bold text-foreground mb-4">Request duty for</Text>
+            <TouchableOpacity onPress={() => { setSelectedDelegateId(null); setShowDelegatePicker(false); }} className="rounded-xl px-4 py-3 mb-2" style={{ backgroundColor: selectedDelegateId === null ? "#E8F5E9" : "#F5F5F5" }}><Text className="font-bold text-foreground">Myself</Text></TouchableOpacity>
+            <ScrollView>{delegateUsers.map((candidate) => <TouchableOpacity key={candidate.uid} onPress={() => { setSelectedDelegateId(candidate.uid); setShowDelegatePicker(false); }} className="rounded-xl px-4 py-3 mb-2" style={{ backgroundColor: selectedDelegateId === candidate.uid ? "#E8F5E9" : "#F5F5F5" }}><Text className="font-bold text-foreground">{candidate.name}</Text><Text className="text-xs text-muted mt-0.5">{candidate.staffNumber}</Text></TouchableOpacity>)}</ScrollView>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Duty Picker Modal */}
       <Modal

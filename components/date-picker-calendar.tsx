@@ -34,7 +34,7 @@ function isSameDay(d1: Date, d2: Date): boolean {
   );
 }
 
-function isDateSelectable(date: Date): boolean {
+function isDateSelectable(date: Date, minDaysAhead: number, restrictMonthlyWindow: boolean): boolean {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -44,9 +44,9 @@ function isDateSelectable(date: Date): boolean {
   // Must be in the future
   if (targetDate <= today) return false;
 
-  // Earliest: today + 7 days
+  // Earliest selectable day is role-specific.
   const minDate = new Date(today);
-  minDate.setDate(minDate.getDate() + 7);
+  minDate.setDate(minDate.getDate() + minDaysAhead);
   if (targetDate < minDate) return false;
 
   // Latest: today + 8 weeks (56 days)
@@ -56,7 +56,7 @@ function isDateSelectable(date: Date): boolean {
 
   // When today is 15-26th, dates 15-26 of the SAME month as today are not selectable
   const todayDay = today.getDate();
-  if (todayDay >= 15 && todayDay <= 26) {
+  if (restrictMonthlyWindow && todayDay >= 15 && todayDay <= 26) {
     const targetDay = targetDate.getDate();
     const isSameMonth =
       targetDate.getMonth() === today.getMonth() &&
@@ -77,6 +77,10 @@ interface DatePickerCalendarProps {
   title?: string;
   /** If true, no date restrictions are applied (for export date picker) */
   noRestrictions?: boolean;
+  /** Number of days after today before a request date can be selected. */
+  minDaysAhead?: number;
+  /** Whether to apply the standard 15th–26th same-month blackout. */
+  restrictMonthlyWindow?: boolean;
 }
 
 export function DatePickerCalendar({
@@ -86,6 +90,8 @@ export function DatePickerCalendar({
   selectedDate,
   title = "Select Date",
   noRestrictions = false,
+  minDaysAhead = 7,
+  restrictMonthlyWindow = true,
 }: DatePickerCalendarProps) {
   const colors = useColors();
   const today = new Date();
@@ -145,7 +151,7 @@ export function DatePickerCalendar({
   const isSelectable = (day: number, month: number, year: number): boolean => {
     if (noRestrictions) return true;
     const date = new Date(year, month, day);
-    return isDateSelectable(date);
+    return isDateSelectable(date, minDaysAhead, restrictMonthlyWindow);
   };
 
   const handleDayPress = (day: number, month: number, year: number) => {
