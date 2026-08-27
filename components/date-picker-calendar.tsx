@@ -276,8 +276,8 @@ export function DatePickerCalendar({
       transparent
       onRequestClose={onClose}
     >
-      <View className="flex-1 justify-center px-4" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
-        <View className="bg-background rounded-2xl p-5">
+      <TouchableOpacity activeOpacity={1} onPress={onClose} className="flex-1 justify-center px-4" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+        <TouchableOpacity activeOpacity={1} onPress={() => {}} className="bg-background rounded-2xl p-5">
           {/* Title */}
           <Text className="text-lg font-bold text-foreground text-center mb-4">
             {title}
@@ -323,8 +323,8 @@ export function DatePickerCalendar({
           >
             <Text className="text-foreground font-semibold text-base">Cancel</Text>
           </TouchableOpacity>
-        </View>
-      </View>
+        </TouchableOpacity>
+      </TouchableOpacity>
     </Modal>
   );
 }

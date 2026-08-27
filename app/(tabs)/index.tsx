@@ -386,8 +386,8 @@ export default function RequestDutyScreen() {
         transparent
         onRequestClose={() => setShowDutyPicker(null)}
       >
-        <View className="flex-1 justify-end" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
-          <View className="bg-background rounded-t-3xl p-4">
+        <TouchableOpacity activeOpacity={1} onPress={() => setShowDutyPicker(null)} className="flex-1 justify-end" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+          <TouchableOpacity activeOpacity={1} onPress={() => {}} className="bg-background rounded-t-3xl p-4">
             <View className="flex-row justify-between items-center mb-4">
               <Text className="text-lg font-bold text-foreground">Select Duty</Text>
               <TouchableOpacity onPress={() => setShowDutyPicker(null)}>
@@ -403,8 +403,8 @@ export default function RequestDutyScreen() {
                 <Text className="text-lg text-foreground">{duty}</Text>
               </TouchableOpacity>
             ))}
-          </View>
-        </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
     </ScreenContainer>
   );
