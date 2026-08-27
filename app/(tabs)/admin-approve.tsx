@@ -67,6 +67,7 @@ export default function AdminApproveScreen() {
   const [staffProfiles, setStaffProfiles] = useState<UserProfile[]>([]);
   const [pendingStaffId, setPendingStaffId] = useState<string | null>(null);
   const [showPendingFilter, setShowPendingFilter] = useState(false);
+  const [selectedPendingRequestId, setSelectedPendingRequestId] = useState<string | null>(null);
 
   // Batch mode state
   const [batchMode, setBatchMode] = useState(false);
@@ -331,7 +332,10 @@ export default function AdminApproveScreen() {
   };
 
   const handleStaffTap = (request: DutyRequest) => {
-    setSelectedStaff({ name: request.userName, userId: request.userId, dutyDate: request.date });
+    setSelectedPendingRequestId((current) => current === request.id ? null : request.id ?? null);
+    setSelectedStaff((current) => current?.dutyDate === request.date && current.userId === request.userId
+      ? null
+      : { name: request.userName, userId: request.userId, dutyDate: request.date });
   };
 
   // Swipe actions
@@ -516,6 +520,7 @@ export default function AdminApproveScreen() {
           paddingHorizontal: 16,
           flexDirection: "row",
           alignItems: "center",
+          backgroundColor: selectedPendingRequestId === item.id ? "#E8F5E9" : "#fff",
           borderBottomWidth: 1,
           borderBottomColor: "#E5E7EB",
         }}

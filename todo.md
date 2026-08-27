@@ -129,3 +129,4 @@
 - [x] Remove automatic @ha.org.hk completion from the Hospital Email input
 - [x] Show selected colleague Sunday-to-Saturday approved hours when Admin taps an Approved Duty row
 - [x] Calculate Admin selected-row hours using the selected request date's Sunday-to-Saturday week
+- [x] Add toggled light-green visual selection to Admin Pending list rows
