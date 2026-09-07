@@ -131,3 +131,4 @@
 - [x] Calculate Admin selected-row hours using the selected request date's Sunday-to-Saturday week
 - [x] Add toggled light-green visual selection to Admin Pending list rows
 - [x] Enable background-tap dismissal for all Request Duty page modals
+- [x] 製作 Admin User 廣東話旁白及繁體中文字幕操作教學影片
