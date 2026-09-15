@@ -3,7 +3,7 @@ services:
     name: tuns-duty-app
     env: node
     plan: free
-    buildCommand: echo "Using pre-built web-build"
+    buildCommand: pnpm install --frozen-lockfile && pnpm build:web
     startCommand: npx serve web-build --single -l $PORT
     envVars:
       - key: EXPO_PUBLIC_FIREBASE_API_KEY

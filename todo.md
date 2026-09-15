@@ -135,3 +135,5 @@
 - [x] Admin Request Duty：只可選擇 User-role 同事代申請
 - [x] Admin Request Duty：日期範圍放寬為今日至八星期後
 - [x] 驗證 Admin 代申請通知、Submitted by Admin 及 Admin note 流程不受影響
+- [x] 調查 Admin Request Duty 修改後出現的 App 404 錯誤
+- [x] 修正 404 根本原因並重新驗證所有路由
