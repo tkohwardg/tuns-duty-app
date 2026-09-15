@@ -12,7 +12,7 @@ import { useColors } from "@/hooks/use-colors";
 
 /**
  * Date restriction rules:
- * - Earliest selectable: today + 7 days
+ * - Earliest selectable: role-specific; Admin can select today, Users can select today + 7 days
  * - Latest selectable: today + 8 weeks (56 days)
  * - When today is 15-26th of a month, dates 15-26 of that same month are NOT selectable
  * - Past dates are never selectable
@@ -41,8 +41,8 @@ function isDateSelectable(date: Date, minDaysAhead: number, restrictMonthlyWindo
   const targetDate = new Date(date);
   targetDate.setHours(0, 0, 0, 0);
 
-  // Must be in the future
-  if (targetDate <= today) return false;
+  // Past dates are never selectable; today is allowed when minDaysAhead is 0.
+  if (targetDate < today) return false;
 
   // Earliest selectable day is role-specific.
   const minDate = new Date(today);
@@ -81,6 +81,8 @@ interface DatePickerCalendarProps {
   minDaysAhead?: number;
   /** Whether to apply the standard 15th–26th same-month blackout. */
   restrictMonthlyWindow?: boolean;
+  /** Label for the date-range guidance shown below the calendar. */
+  restrictionHint?: string;
 }
 
 export function DatePickerCalendar({
@@ -92,6 +94,7 @@ export function DatePickerCalendar({
   noRestrictions = false,
   minDaysAhead = 7,
   restrictMonthlyWindow = true,
+  restrictionHint,
 }: DatePickerCalendarProps) {
   const colors = useColors();
   const today = new Date();
@@ -312,7 +315,7 @@ export function DatePickerCalendar({
           {/* Info text for restrictions */}
           {!noRestrictions && (
             <Text className="text-xs text-muted text-center mt-3">
-              Selectable: 7 days from now to 8 weeks ahead
+              {restrictionHint ?? `${minDaysAhead === 0 ? "Today" : `${minDaysAhead} days from now`} to 8 weeks ahead`}
             </Text>
           )}
 

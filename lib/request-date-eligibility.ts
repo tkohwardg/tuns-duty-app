@@ -1,3 +1,3 @@
 export function getRequestDateEligibility(isAdmin: boolean) {
-  return { minDaysAhead: isAdmin ? 1 : 7, restrictMonthlyWindow: !isAdmin };
+  return { minDaysAhead: isAdmin ? 0 : 7, restrictMonthlyWindow: !isAdmin };
 }

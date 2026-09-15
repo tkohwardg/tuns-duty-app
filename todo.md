@@ -132,3 +132,6 @@
 - [x] Add toggled light-green visual selection to Admin Pending list rows
 - [x] Enable background-tap dismissal for all Request Duty page modals
 - [x] 製作 Admin User 廣東話旁白及繁體中文字幕操作教學影片
+- [x] Admin Request Duty：只可選擇 User-role 同事代申請
+- [x] Admin Request Duty：日期範圍放寬為今日至八星期後
+- [x] 驗證 Admin 代申請通知、Submitted by Admin 及 Admin note 流程不受影響
