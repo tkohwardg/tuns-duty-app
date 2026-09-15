@@ -6,7 +6,7 @@ describe("getRequestDateEligibility", () => {
     expect(getRequestDateEligibility(true)).toEqual({ minDaysAhead: 0, restrictMonthlyWindow: false });
   });
 
-  it("preserves the standard User restrictions", () => {
-    expect(getRequestDateEligibility(false)).toEqual({ minDaysAhead: 7, restrictMonthlyWindow: true });
+  it("gives Users 14-day eligibility with the standard monthly blackout", () => {
+    expect(getRequestDateEligibility(false)).toEqual({ minDaysAhead: 14, restrictMonthlyWindow: true });
   });
 });

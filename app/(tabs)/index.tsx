@@ -368,7 +368,7 @@ export default function RequestDutyScreen() {
         title="Select Date"
         minDaysAhead={dateEligibility.minDaysAhead}
         restrictMonthlyWindow={dateEligibility.restrictMonthlyWindow}
-        restrictionHint={isAdmin ? "Today to 8 weeks ahead" : "7 days from now to 8 weeks ahead"}
+        restrictionHint={isAdmin ? "Today to 8 weeks ahead" : "14 days from now to 8 weeks ahead"}
       />
 
       <Modal visible={showDelegatePicker} transparent onRequestClose={() => setShowDelegatePicker(false)}>

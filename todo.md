@@ -137,3 +137,5 @@
 - [x] 驗證 Admin 代申請通知、Submitted by Admin 及 Admin note 流程不受影響
 - [x] 調查 Admin Request Duty 修改後出現的 App 404 錯誤
 - [x] 修正 404 根本原因並重新驗證所有路由
+- [x] User role 最早申請日期由今天起計 7 日後改為 14 日後
+- [x] 驗證 Admin 今日至八星期後規則及 User blackout 規則保持不變
