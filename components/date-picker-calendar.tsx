@@ -12,9 +12,9 @@ import { useColors } from "@/hooks/use-colors";
 
 /**
  * Date restriction rules:
- * - Earliest selectable: role-specific; Admin can select today, Users can select today + 7 days
+ * - Earliest selectable: role-specific; Admin can select today, Users can select today + 14 days
  * - Latest selectable: today + 8 weeks (56 days)
- * - When today is 15-26th of a month, dates 15-26 of that same month are NOT selectable
+ * - The 14-day lead-time rule takes priority if it overlaps the legacy 15th–26th blackout
  * - Past dates are never selectable
  */
 
@@ -54,18 +54,9 @@ function isDateSelectable(date: Date, minDaysAhead: number, restrictMonthlyWindo
   maxDate.setDate(maxDate.getDate() + 56);
   if (targetDate > maxDate) return false;
 
-  // When today is 15-26th, dates 15-26 of the SAME month as today are not selectable
-  const todayDay = today.getDate();
-  if (restrictMonthlyWindow && todayDay >= 15 && todayDay <= 26) {
-    const targetDay = targetDate.getDate();
-    const isSameMonth =
-      targetDate.getMonth() === today.getMonth() &&
-      targetDate.getFullYear() === today.getFullYear();
-    if (isSameMonth && targetDay >= 15 && targetDay <= 26) {
-      return false;
-    }
-  }
-
+  // The 14-day lead-time rule takes priority over the legacy 15th–26th
+  // blackout. Once the date has passed minDate, the blackout must not
+  // reject it, even if both rules would otherwise overlap.
   return true;
 }
 
@@ -79,7 +70,7 @@ interface DatePickerCalendarProps {
   noRestrictions?: boolean;
   /** Number of days after today before a request date can be selected. */
   minDaysAhead?: number;
-  /** Whether to apply the standard 15th–26th same-month blackout. */
+  /** Legacy blackout flag retained for compatibility; eligible 14-day dates always take priority. */
   restrictMonthlyWindow?: boolean;
   /** Label for the date-range guidance shown below the calendar. */
   restrictionHint?: string;
