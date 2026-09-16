@@ -68,7 +68,7 @@ interface DatePickerCalendarProps {
   title?: string;
   /** If true, no date restrictions are applied (for export date picker) */
   noRestrictions?: boolean;
-  /** Number of days after today before a request date can be selected. */
+  /** Number of days after today before a User request date can be selected; defaults to 14. */
   minDaysAhead?: number;
   /** Legacy blackout flag retained for compatibility; eligible 14-day dates always take priority. */
   restrictMonthlyWindow?: boolean;
@@ -83,7 +83,7 @@ export function DatePickerCalendar({
   selectedDate,
   title = "Select Date",
   noRestrictions = false,
-  minDaysAhead = 7,
+  minDaysAhead = 14,
   restrictMonthlyWindow = true,
   restrictionHint,
 }: DatePickerCalendarProps) {

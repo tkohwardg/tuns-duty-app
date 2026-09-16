@@ -141,3 +141,5 @@
 - [x] 驗證 Admin 今日至八星期後規則及 User blackout 規則保持不變
 - [x] User 日期達 14 日後時優先於 15–26 日 blackout
 - [x] 驗證 User 14 日優先、八星期上限及 Admin 日期規則
+- [x] 調查正式環境仍顯示 User 7 日提示的舊版畫面
+- [x] 確保正式部署載入最新 User 14 日優先 Web build
