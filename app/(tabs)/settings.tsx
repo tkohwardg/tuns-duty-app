@@ -49,6 +49,11 @@ export default function SettingsScreen() {
   const [wardNameInput, setWardNameInput] = useState(settings.wardName);
   const [savingWard, setSavingWard] = useState(false);
   const [savingLeadDays, setSavingLeadDays] = useState(false);
+  const [pendingLeadDays, setPendingLeadDays] = useState<UserRequestLeadDays>(settings.userRequestLeadDays);
+
+  useEffect(() => {
+    setPendingLeadDays(settings.userRequestLeadDays);
+  }, [settings.userRequestLeadDays]);
 
   // Duty Option
   const [showAddDuty, setShowAddDuty] = useState(false);
@@ -298,12 +303,12 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleUpdateLeadDays = async (days: UserRequestLeadDays) => {
-    if (days === settings.userRequestLeadDays) return;
+  const handleConfirmLeadDays = async () => {
+    if (pendingLeadDays === settings.userRequestLeadDays) return;
     setSavingLeadDays(true);
     try {
-      await updateUserRequestLeadDays(days);
-      showToast(`User earliest request date set to ${days} days ahead.`);
+      await updateUserRequestLeadDays(pendingLeadDays);
+      showToast(`User earliest request date set to ${pendingLeadDays} days ahead.`);
     } catch (error) {
       showToast("Failed to update earliest request date.", "error");
     } finally {
@@ -671,11 +676,11 @@ export default function SettingsScreen() {
           </Text>
           <View className="flex-row flex-wrap gap-2">
             {[7, 14, 21, 28].map((days) => {
-              const selected = settings.userRequestLeadDays === days;
+              const selected = pendingLeadDays === days;
               return (
                 <TouchableOpacity
                   key={days}
-                  onPress={() => handleUpdateLeadDays(days as UserRequestLeadDays)}
+                  onPress={() => setPendingLeadDays(days as UserRequestLeadDays)}
                   disabled={savingLeadDays}
                   style={{
                     borderWidth: 1,
@@ -694,8 +699,30 @@ export default function SettingsScreen() {
               );
             })}
           </View>
+          <View className="flex-row items-center justify-between mt-3">
+            <Text className="text-xs text-muted">
+              Current setting: {settings.userRequestLeadDays} days
+            </Text>
+            <TouchableOpacity
+              onPress={handleConfirmLeadDays}
+              disabled={savingLeadDays || pendingLeadDays === settings.userRequestLeadDays}
+              style={{
+                backgroundColor: pendingLeadDays === settings.userRequestLeadDays ? "#D1D5DB" : "#2563EB",
+                borderRadius: 9,
+                paddingHorizontal: 16,
+                paddingVertical: 9,
+                opacity: savingLeadDays ? 0.65 : 1,
+              }}
+            >
+              {savingLeadDays ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={{ color: "#fff", fontWeight: "700", fontSize: 13 }}>Confirm</Text>
+              )}
+            </TouchableOpacity>
+          </View>
           <Text className="text-xs text-muted mt-3">
-            The existing 15–26 monthly blackout remains in place. The selected lead-time rule takes priority when the rules overlap.
+            Choose a value first, then press Confirm to apply it. The existing 15–26 monthly blackout remains in place. The selected lead-time rule takes priority when the rules overlap.
           </Text>
         </View>
 
