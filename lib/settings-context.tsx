@@ -11,10 +11,12 @@ export interface DutyOption {
 export interface AppSettings {
   wardName: string;
   dutyOptions: DutyOption[];
+  userRequestLeadDays: 7 | 14 | 21 | 28;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
   wardName: "Ward 8S",
+  userRequestLeadDays: 14,
   dutyOptions: [
     { label: "A", hours: 7, color: "#EF4444" },
     { label: "P", hours: 7, color: "#3B82F6" },
@@ -27,6 +29,7 @@ interface SettingsContextType {
   settings: AppSettings;
   isLoading: boolean;
   updateWardName: (name: string) => Promise<void>;
+  updateUserRequestLeadDays: (days: 7 | 14 | 21 | 28) => Promise<void>;
   addDutyOption: (option: DutyOption) => Promise<void>;
   removeDutyOption: (label: string) => Promise<void>;
   refreshSettings: () => Promise<void>;
@@ -36,6 +39,7 @@ const SettingsContext = createContext<SettingsContextType>({
   settings: DEFAULT_SETTINGS,
   isLoading: true,
   updateWardName: async () => {},
+  updateUserRequestLeadDays: async () => {},
   addDutyOption: async () => {},
   removeDutyOption: async () => {},
   refreshSettings: async () => {},
@@ -56,6 +60,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         const data = docSnap.data() as AppSettings;
         setSettings({
           wardName: data.wardName || DEFAULT_SETTINGS.wardName,
+          userRequestLeadDays: [7, 14, 21, 28].includes(data.userRequestLeadDays)
+            ? data.userRequestLeadDays
+            : DEFAULT_SETTINGS.userRequestLeadDays,
           dutyOptions: data.dutyOptions && data.dutyOptions.length > 0
             ? data.dutyOptions
             : DEFAULT_SETTINGS.dutyOptions,
@@ -89,6 +96,10 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     await saveSettings({ ...settings, wardName: name });
   };
 
+  const updateUserRequestLeadDays = async (days: 7 | 14 | 21 | 28) => {
+    await saveSettings({ ...settings, userRequestLeadDays: days });
+  };
+
   const addDutyOption = async (option: DutyOption) => {
     const updated = [...settings.dutyOptions, option];
     await saveSettings({ ...settings, dutyOptions: updated });
@@ -109,6 +120,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         settings,
         isLoading,
         updateWardName,
+        updateUserRequestLeadDays,
         addDutyOption,
         removeDutyOption,
         refreshSettings,

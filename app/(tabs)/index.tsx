@@ -56,7 +56,7 @@ export default function RequestDutyScreen() {
   const [selectedDelegateId, setSelectedDelegateId] = useState<string | null>(null);
   const [showDelegatePicker, setShowDelegatePicker] = useState(false);
   const [delegationNote, setDelegationNote] = useState("");
-  const dateEligibility = getRequestDateEligibility(isAdmin);
+  const dateEligibility = getRequestDateEligibility(isAdmin, settings.userRequestLeadDays);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -368,7 +368,7 @@ export default function RequestDutyScreen() {
         title="Select Date"
         minDaysAhead={dateEligibility.minDaysAhead}
         restrictMonthlyWindow={dateEligibility.restrictMonthlyWindow}
-        restrictionHint={isAdmin ? "Today to 8 weeks ahead" : "14 days from now to 8 weeks ahead"}
+        restrictionHint={isAdmin ? "Today to 8 weeks ahead" : `${dateEligibility.minDaysAhead} days from now to 8 weeks ahead`}
       />
 
       <Modal visible={showDelegatePicker} transparent onRequestClose={() => setShowDelegatePicker(false)}>

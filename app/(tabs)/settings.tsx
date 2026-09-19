@@ -17,6 +17,7 @@ import { useAuthContext } from "@/lib/auth-context";
 import { useSettings, type DutyOption } from "@/lib/settings-context";
 import { getAllApprovedRequests, createUserAsAdmin, getAllUsers, deleteUserProfile, getMasterPassword, updateMasterPassword, type DutyRequest, type UserProfile } from "@/lib/firebase";
 import { getNameInitials } from "@/lib/avatar-utils";
+import type { UserRequestLeadDays } from "@/lib/request-date-eligibility";
 import { ModalCloseButton } from "@/components/modal-close-button";
 import { useToast } from "@/lib/toast-context";
 import { getAuth, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
@@ -42,11 +43,12 @@ function formatDateStr(date: Date): string {
 export default function SettingsScreen() {
   const { showToast } = useToast();
   const { isAdmin, userProfile, user, logout } = useAuthContext();
-  const { settings, updateWardName, addDutyOption, removeDutyOption } = useSettings();
+  const { settings, updateWardName, updateUserRequestLeadDays, addDutyOption, removeDutyOption } = useSettings();
 
   // Ward Name
   const [wardNameInput, setWardNameInput] = useState(settings.wardName);
   const [savingWard, setSavingWard] = useState(false);
+  const [savingLeadDays, setSavingLeadDays] = useState(false);
 
   // Duty Option
   const [showAddDuty, setShowAddDuty] = useState(false);
@@ -293,6 +295,19 @@ export default function SettingsScreen() {
       showToast("Failed to update ward name.", "error");
     } finally {
       setSavingWard(false);
+    }
+  };
+
+  const handleUpdateLeadDays = async (days: UserRequestLeadDays) => {
+    if (days === settings.userRequestLeadDays) return;
+    setSavingLeadDays(true);
+    try {
+      await updateUserRequestLeadDays(days);
+      showToast(`User earliest request date set to ${days} days ahead.`);
+    } catch (error) {
+      showToast("Failed to update earliest request date.", "error");
+    } finally {
+      setSavingLeadDays(false);
     }
   };
 
@@ -646,7 +661,45 @@ export default function SettingsScreen() {
           ))}
         </View>
 
-        {/* Section 3: Change Password */}
+        {/* Section 3: User request date rule */}
+        <View className="mx-4 mt-4 p-4 bg-surface rounded-xl border border-border">
+          <Text className="text-base font-bold text-foreground mb-1">
+            User Earliest Request Date
+          </Text>
+          <Text className="text-xs text-muted mb-3">
+            Controls how many days ahead User-role staff must request duty. Admin requests remain available from today to 8 weeks ahead.
+          </Text>
+          <View className="flex-row flex-wrap gap-2">
+            {[7, 14, 21, 28].map((days) => {
+              const selected = settings.userRequestLeadDays === days;
+              return (
+                <TouchableOpacity
+                  key={days}
+                  onPress={() => handleUpdateLeadDays(days as UserRequestLeadDays)}
+                  disabled={savingLeadDays}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: selected ? "#2563EB" : "#D1D5DB",
+                    backgroundColor: selected ? "#DBEAFE" : "#FFFFFF",
+                    borderRadius: 10,
+                    paddingHorizontal: 14,
+                    paddingVertical: 9,
+                    opacity: savingLeadDays ? 0.6 : 1,
+                  }}
+                >
+                  <Text style={{ color: selected ? "#1D4ED8" : "#374151", fontWeight: "700", fontSize: 13 }}>
+                    {days} days
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <Text className="text-xs text-muted mt-3">
+            The existing 15–26 monthly blackout remains in place. The selected lead-time rule takes priority when the rules overlap.
+          </Text>
+        </View>
+
+        {/* Section 4: Change Password */}
         <View className="mx-4 mt-4 p-4 bg-surface rounded-xl border border-border">
           <Text className="text-base font-bold text-foreground mb-3">
             Change Password
