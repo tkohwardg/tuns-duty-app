@@ -120,6 +120,25 @@ describe("Sorting Logic - Ascending by duty date then createdAt", () => {
   });
 });
 
+describe("Rejected duty restore sorting", () => {
+  it("sorts rejected duties by nearest duty date, then latest rejection action", () => {
+    const requests = [
+      { date: "25/11/2026", updatedAt: 3000 },
+      { date: "20/11/2026", updatedAt: 1000 },
+      { date: "20/11/2026", updatedAt: 2000 },
+    ];
+    const parse = (value: string) => {
+      const [day, month, year] = value.split("/").map(Number);
+      return new Date(year, month - 1, day).getTime();
+    };
+    const sorted = [...requests].sort((a, b) => {
+      const dateDiff = parse(a.date) - parse(b.date);
+      return dateDiff !== 0 ? dateDiff : b.updatedAt - a.updatedAt;
+    });
+    expect(sorted.map((item) => item.updatedAt)).toEqual([2000, 1000, 3000]);
+  });
+});
+
 // ========== Dynamic Duty Options ==========
 describe("Dynamic Duty Options", () => {
   const DEFAULT_OPTIONS = [

@@ -224,6 +224,15 @@ export const getAllPendingRequests = async () => {
   });
 };
 
+export const getAllRejectedRequests = async () => {
+  const q = query(
+    collection(db, COLLECTIONS.DUTY_REQUESTS),
+    where("status", "==", "rejected")
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as DutyRequest));
+};
+
 /**
  * Fetch approved duty requests.
  * - Admins: call without userId to get ALL approved requests.

@@ -15,7 +15,7 @@ import {
 import { ScreenContainer } from "@/components/screen-container";
 import { useAuthContext } from "@/lib/auth-context";
 import { useSettings, type DutyOption } from "@/lib/settings-context";
-import { getAllApprovedRequests, createUserAsAdmin, getAllUsers, deleteUserProfile, getMasterPassword, updateMasterPassword, type DutyRequest, type UserProfile } from "@/lib/firebase";
+import { getAllApprovedRequests, getAllRejectedRequests, updateDutyRequestStatus, createUserAsAdmin, getAllUsers, deleteUserProfile, getMasterPassword, updateMasterPassword, type DutyRequest, type UserProfile } from "@/lib/firebase";
 import { getNameInitials } from "@/lib/avatar-utils";
 import type { UserRequestLeadDays } from "@/lib/request-date-eligibility";
 import { ModalCloseButton } from "@/components/modal-close-button";
@@ -27,6 +27,8 @@ import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import { buildApprovedDutiesWorkbook } from "@/lib/approved-duties-export";
 import { getNoApprovedDutiesMessage } from "@/lib/export-feedback";
+import { updateSheetStatus } from "@/lib/google-sheets";
+import { Swipeable } from "react-native-gesture-handler";
 
 function parseDateStr(dateStr: string): Date {
   const parts = dateStr.split("/");
@@ -61,6 +63,11 @@ export default function SettingsScreen() {
   const [newDutyHours, setNewDutyHours] = useState("");
   const [newDutyColor, setNewDutyColor] = useState("#6B7280");
   const [savingDuty, setSavingDuty] = useState(false);
+
+  // Rejected duties
+  const [rejectedDuties, setRejectedDuties] = useState<DutyRequest[]>([]);
+  const [loadingRejectedDuties, setLoadingRejectedDuties] = useState(false);
+  const [restoringRejectedId, setRestoringRejectedId] = useState<string | null>(null);
 
   // Password
   const [currentPassword, setCurrentPassword] = useState("");
@@ -169,6 +176,51 @@ export default function SettingsScreen() {
   useEffect(() => {
     loadUsers();
   }, [loadUsers]);
+
+  const loadRejectedDuties = useCallback(async () => {
+    if (!isAdmin) return;
+    setLoadingRejectedDuties(true);
+    try {
+      const rejected = await getAllRejectedRequests();
+      rejected.sort((a, b) => {
+        const dateDiff = parseDateStr(a.date).getTime() - parseDateStr(b.date).getTime();
+        if (dateDiff !== 0) return dateDiff;
+        const rejectedAtA = a.updatedAt?.toMillis?.() || 0;
+        const rejectedAtB = b.updatedAt?.toMillis?.() || 0;
+        return rejectedAtB - rejectedAtA;
+      });
+      setRejectedDuties(rejected);
+    } catch (error) {
+      console.error("Failed to load rejected duties", error);
+      showToast("Failed to load rejected duties.", "error");
+    } finally {
+      setLoadingRejectedDuties(false);
+    }
+  }, [isAdmin, showToast]);
+
+  useEffect(() => {
+    loadRejectedDuties();
+  }, [loadRejectedDuties]);
+
+  const handleRestoreRejectedDuty = async (request: DutyRequest) => {
+    if (!request.id || restoringRejectedId) return;
+    setRestoringRejectedId(request.id);
+    try {
+      await updateDutyRequestStatus(request.id, "pending");
+      try {
+        await updateSheetStatus(request.id, "pending");
+      } catch (sheetError) {
+        console.warn("Duty restored, but Google Sheet status was not updated:", sheetError);
+      }
+      setRejectedDuties((current) => current.filter((item) => item.id !== request.id));
+      showToast("Rejected duty restored to pending.");
+    } catch (error) {
+      console.error("Failed to restore rejected duty", error);
+      showToast("Failed to restore rejected duty.", "error");
+    } finally {
+      setRestoringRejectedId(null);
+    }
+  };
 
   const handleAddUser = async () => {
     setUserError("");
@@ -726,7 +778,62 @@ export default function SettingsScreen() {
           </Text>
         </View>
 
-        {/* Section 4: Change Password */}
+        {/* Section 4: Rejected duties */}
+        <View className="mx-4 mt-4 p-4 bg-surface rounded-xl border border-border">
+          <View className="flex-row items-center justify-between mb-1">
+            <Text className="text-base font-bold text-foreground">Rejected Duties</Text>
+            <TouchableOpacity onPress={loadRejectedDuties} disabled={loadingRejectedDuties}>
+              <Text style={{ color: "#2563EB", fontSize: 12, fontWeight: "700" }}>Refresh</Text>
+            </TouchableOpacity>
+          </View>
+          <Text className="text-xs text-muted mb-3">
+            Sorted by nearest duty date. Swipe left on a duty to cancel the rejection and return it to Pending Duty.
+          </Text>
+          {loadingRejectedDuties ? (
+            <ActivityIndicator size="small" color="#2563EB" style={{ marginVertical: 14 }} />
+          ) : rejectedDuties.length === 0 ? (
+            <Text className="text-sm text-muted text-center py-3">No rejected duties</Text>
+          ) : (
+            rejectedDuties.map((request) => {
+              const row = (
+                <View style={{ flexDirection: "row", alignItems: "center", paddingVertical: 11, paddingHorizontal: 10, backgroundColor: "#fff", borderBottomWidth: 1, borderBottomColor: "#E5E7EB" }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 14, fontWeight: "700", color: "#11181C" }} numberOfLines={1}>{request.userName}</Text>
+                    <Text style={{ fontSize: 12, color: "#687076", marginTop: 2 }}>{request.date}</Text>
+                  </View>
+                  <View style={{ backgroundColor: "#EF4444", paddingHorizontal: 9, paddingVertical: 4, borderRadius: 8, marginRight: Platform.OS === "web" ? 10 : 0 }}>
+                    <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>{request.dutyType}</Text>
+                  </View>
+                  {Platform.OS === "web" && (
+                    <TouchableOpacity onPress={() => handleRestoreRejectedDuty(request)} disabled={restoringRejectedId === request.id} style={{ backgroundColor: "#2563EB", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7 }}>
+                      {restoringRejectedId === request.id ? <ActivityIndicator size="small" color="#fff" /> : <Text style={{ color: "#fff", fontSize: 11, fontWeight: "700" }}>Restore</Text>}
+                    </TouchableOpacity>
+                  )}
+                </View>
+              );
+
+              if (Platform.OS !== "web") {
+                return (
+                  <Swipeable
+                    key={request.id}
+                    renderLeftActions={() => (
+                      <TouchableOpacity onPress={() => handleRestoreRejectedDuty(request)} style={{ backgroundColor: "#2563EB", justifyContent: "center", alignItems: "center", paddingHorizontal: 18 }}>
+                        {restoringRejectedId === request.id ? <ActivityIndicator size="small" color="#fff" /> : <><Text style={{ color: "#fff", fontSize: 20, fontWeight: "700" }}>↶</Text><Text style={{ color: "#fff", fontSize: 11, fontWeight: "700" }}>Restore</Text></>}
+                      </TouchableOpacity>
+                    )}
+                    overshootLeft={false}
+                    overshootRight={false}
+                  >
+                    {row}
+                  </Swipeable>
+                );
+              }
+              return <View key={request.id}>{row}</View>;
+            })
+          )}
+        </View>
+
+        {/* Section 5: Change Password */}
         <View className="mx-4 mt-4 p-4 bg-surface rounded-xl border border-border">
           <Text className="text-base font-bold text-foreground mb-3">
             Change Password
