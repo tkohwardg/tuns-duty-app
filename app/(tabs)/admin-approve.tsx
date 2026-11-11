@@ -15,6 +15,7 @@ import {
   GestureResponderEvent,
   PanResponderGestureState,
 } from "react-native";
+import { Timestamp } from "firebase/firestore";
 import { ScreenContainer } from "@/components/screen-container";
 import { useAuthContext } from "@/lib/auth-context";
 import {
@@ -51,7 +52,7 @@ function parseDateStr(dateStr: string): Date {
 }
 
 export default function AdminApproveScreen() {
-  const { isAdmin } = useAuthContext();
+  const { isAdmin, userProfile } = useAuthContext();
   const { settings } = useSettings();
   const insets = useSafeAreaInsets();
   const [pendingRequests, setPendingRequests] = useState<DutyRequest[]>([]);
@@ -165,7 +166,11 @@ export default function AdminApproveScreen() {
     if (!request.id || processingId) return;
     setProcessingId(request.id);
     try {
-      await updateDutyRequestStatus(request.id, "rejected");
+      await updateDutyRequestStatus(request.id, "rejected", {
+        rejectedByUid: userProfile?.uid,
+        rejectedByName: userProfile?.name || "Unknown Admin",
+        rejectedAt: Timestamp.now(),
+      });
       await updateSheetStatus(request.id, "rejected");
       setPendingRequests((prev) => prev.filter((r) => r.id !== request.id));
     } catch (error) {
@@ -226,7 +231,17 @@ export default function AdminApproveScreen() {
 
     for (const id of ids) {
       try {
-        await updateDutyRequestStatus(id, actionLabelPast as "approved" | "rejected");
+        await updateDutyRequestStatus(
+          id,
+          actionLabelPast as "approved" | "rejected",
+          action === "reject"
+            ? {
+                rejectedByUid: userProfile?.uid,
+                rejectedByName: userProfile?.name || "Unknown Admin",
+                rejectedAt: Timestamp.now(),
+              }
+            : undefined,
+        );
         await updateSheetStatus(id, actionLabelPast as "approved" | "rejected");
         successCount++;
         if (action === "approve") {

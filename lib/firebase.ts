@@ -122,6 +122,9 @@ export interface DutyRequest {
   submittedByUid?: string;
   submittedByName?: string;
   delegationNote?: string;
+  rejectedByUid?: string;
+  rejectedByName?: string;
+  rejectedAt?: Timestamp;
 }
 
 export interface AppNotification {
@@ -177,11 +180,16 @@ export const getUserNotifications = async (recipientId: string) => {
 export const markNotificationRead = async (notificationId: string) =>
   updateDoc(doc(db, COLLECTIONS.NOTIFICATIONS, notificationId), { read: true });
 
-export const updateDutyRequestStatus = async (requestId: string, status: RequestStatus) => {
+export const updateDutyRequestStatus = async (
+  requestId: string,
+  status: RequestStatus,
+  metadata?: Partial<Pick<DutyRequest, "rejectedByUid" | "rejectedByName" | "rejectedAt">>,
+) => {
   const docRef = doc(db, COLLECTIONS.DUTY_REQUESTS, requestId);
   return updateDoc(docRef, {
     status,
     updatedAt: Timestamp.now(),
+    ...metadata,
   });
 };
 

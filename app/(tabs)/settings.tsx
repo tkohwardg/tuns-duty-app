@@ -42,6 +42,14 @@ function formatDateStr(date: Date): string {
   return `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
 }
 
+function isAfterToday(dateStr: string): boolean {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const dutyDate = parseDateStr(dateStr);
+  dutyDate.setHours(0, 0, 0, 0);
+  return dutyDate.getTime() > today.getTime();
+}
+
 export default function SettingsScreen() {
   const { showToast } = useToast();
   const { isAdmin, userProfile, user, logout } = useAuthContext();
@@ -68,6 +76,7 @@ export default function SettingsScreen() {
   const [rejectedDuties, setRejectedDuties] = useState<DutyRequest[]>([]);
   const [loadingRejectedDuties, setLoadingRejectedDuties] = useState(false);
   const [restoringRejectedId, setRestoringRejectedId] = useState<string | null>(null);
+  const [showRejectedModal, setShowRejectedModal] = useState(false);
 
   // Password
   const [currentPassword, setCurrentPassword] = useState("");
@@ -183,10 +192,8 @@ export default function SettingsScreen() {
     try {
       const rejected = await getAllRejectedRequests();
       rejected.sort((a, b) => {
-        const dateDiff = parseDateStr(a.date).getTime() - parseDateStr(b.date).getTime();
-        if (dateDiff !== 0) return dateDiff;
-        const rejectedAtA = a.updatedAt?.toMillis?.() || 0;
-        const rejectedAtB = b.updatedAt?.toMillis?.() || 0;
+        const rejectedAtA = a.rejectedAt?.toMillis?.() || a.updatedAt?.toMillis?.() || 0;
+        const rejectedAtB = b.rejectedAt?.toMillis?.() || b.updatedAt?.toMillis?.() || 0;
         return rejectedAtB - rejectedAtA;
       });
       setRejectedDuties(rejected);
@@ -204,6 +211,10 @@ export default function SettingsScreen() {
 
   const handleRestoreRejectedDuty = async (request: DutyRequest) => {
     if (!request.id || restoringRejectedId) return;
+    if (!isAfterToday(request.date)) {
+      showToast("Only duties after today can be restored.", "error");
+      return;
+    }
     setRestoringRejectedId(request.id);
     try {
       await updateDutyRequestStatus(request.id, "pending");
@@ -779,59 +790,22 @@ export default function SettingsScreen() {
         </View>
 
         {/* Section 4: Rejected duties */}
-        <View className="mx-4 mt-4 p-4 bg-surface rounded-xl border border-border">
-          <View className="flex-row items-center justify-between mb-1">
+        <TouchableOpacity
+          onPress={() => { setShowRejectedModal(true); loadRejectedDuties(); }}
+          className="mx-4 mt-4 p-4 bg-surface rounded-xl border border-border"
+          style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
+        >
+          <View>
             <Text className="text-base font-bold text-foreground">Rejected Duties</Text>
-            <TouchableOpacity onPress={loadRejectedDuties} disabled={loadingRejectedDuties}>
-              <Text style={{ color: "#2563EB", fontSize: 12, fontWeight: "700" }}>Refresh</Text>
-            </TouchableOpacity>
+            <Text className="text-xs text-muted mt-1">Tap to review rejected duty records</Text>
           </View>
-          <Text className="text-xs text-muted mb-3">
-            Sorted by nearest duty date. Swipe left on a duty to cancel the rejection and return it to Pending Duty.
-          </Text>
-          {loadingRejectedDuties ? (
-            <ActivityIndicator size="small" color="#2563EB" style={{ marginVertical: 14 }} />
-          ) : rejectedDuties.length === 0 ? (
-            <Text className="text-sm text-muted text-center py-3">No rejected duties</Text>
-          ) : (
-            rejectedDuties.map((request) => {
-              const row = (
-                <View style={{ flexDirection: "row", alignItems: "center", paddingVertical: 11, paddingHorizontal: 10, backgroundColor: "#fff", borderBottomWidth: 1, borderBottomColor: "#E5E7EB" }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 14, fontWeight: "700", color: "#11181C" }} numberOfLines={1}>{request.userName}</Text>
-                    <Text style={{ fontSize: 12, color: "#687076", marginTop: 2 }}>{request.date}</Text>
-                  </View>
-                  <View style={{ backgroundColor: "#EF4444", paddingHorizontal: 9, paddingVertical: 4, borderRadius: 8, marginRight: Platform.OS === "web" ? 10 : 0 }}>
-                    <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>{request.dutyType}</Text>
-                  </View>
-                  {Platform.OS === "web" && (
-                    <TouchableOpacity onPress={() => handleRestoreRejectedDuty(request)} disabled={restoringRejectedId === request.id} style={{ backgroundColor: "#2563EB", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7 }}>
-                      {restoringRejectedId === request.id ? <ActivityIndicator size="small" color="#fff" /> : <Text style={{ color: "#fff", fontSize: 11, fontWeight: "700" }}>Restore</Text>}
-                    </TouchableOpacity>
-                  )}
-                </View>
-              );
-
-              if (Platform.OS !== "web") {
-                return (
-                  <Swipeable
-                    key={request.id}
-                    renderLeftActions={() => (
-                      <TouchableOpacity onPress={() => handleRestoreRejectedDuty(request)} style={{ backgroundColor: "#2563EB", justifyContent: "center", alignItems: "center", paddingHorizontal: 18 }}>
-                        {restoringRejectedId === request.id ? <ActivityIndicator size="small" color="#fff" /> : <><Text style={{ color: "#fff", fontSize: 20, fontWeight: "700" }}>↶</Text><Text style={{ color: "#fff", fontSize: 11, fontWeight: "700" }}>Restore</Text></>}
-                      </TouchableOpacity>
-                    )}
-                    overshootLeft={false}
-                    overshootRight={false}
-                  >
-                    {row}
-                  </Swipeable>
-                );
-              }
-              return <View key={request.id}>{row}</View>;
-            })
-          )}
-        </View>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <View style={{ backgroundColor: "#FEE2E2", borderRadius: 12, paddingHorizontal: 9, paddingVertical: 4 }}>
+              <Text style={{ color: "#B91C1C", fontSize: 12, fontWeight: "700" }}>{rejectedDuties.length}</Text>
+            </View>
+            <Text style={{ color: "#687076", fontSize: 20 }}>›</Text>
+          </View>
+        </TouchableOpacity>
 
         {/* Section 5: Change Password */}
         <View className="mx-4 mt-4 p-4 bg-surface rounded-xl border border-border">
@@ -1168,6 +1142,82 @@ export default function SettingsScreen() {
         </Text>
       </View>
       </ScrollView>
+
+      {/* Rejected Duties Review Modal */}
+      <Modal
+        visible={showRejectedModal}
+        transparent
+        onRequestClose={() => setShowRejectedModal(false)}
+      >
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => setShowRejectedModal(false)}
+          style={{ flex: 1, justifyContent: "center", paddingHorizontal: 16, backgroundColor: "rgba(0,0,0,0.5)" }}
+        >
+          <TouchableOpacity activeOpacity={1} onPress={() => {}} style={{ maxHeight: "82%", backgroundColor: "#fff", borderRadius: 18, padding: 18 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+              <View>
+                <Text style={{ fontSize: 18, fontWeight: "700", color: "#11181C" }}>Rejected Duties</Text>
+                <Text style={{ fontSize: 12, color: "#687076", marginTop: 3 }}>Nearest reject action first</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowRejectedModal(false)} style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: "#F3F4F6", alignItems: "center", justifyContent: "center" }}>
+                <Text style={{ fontSize: 20, color: "#374151", lineHeight: 22 }}>×</Text>
+              </TouchableOpacity>
+            </View>
+
+            {loadingRejectedDuties ? (
+              <ActivityIndicator size="small" color="#2563EB" style={{ marginVertical: 24 }} />
+            ) : rejectedDuties.length === 0 ? (
+              <Text style={{ color: "#687076", textAlign: "center", paddingVertical: 28 }}>No rejected duties</Text>
+            ) : (
+              <ScrollView style={{ marginTop: 14 }} showsVerticalScrollIndicator={false}>
+                {rejectedDuties.map((request) => {
+                  const canRestore = isAfterToday(request.date);
+                  const actionTimestamp = request.rejectedAt ?? request.updatedAt;
+                  const actionDateTime = actionTimestamp?.toDate?.().toLocaleString() ?? "Unknown date/time";
+                  const adminName = request.rejectedByName || "Unknown Admin";
+                  const row = (
+                    <View style={{ flexDirection: "row", alignItems: "center", paddingVertical: 12, paddingHorizontal: 10, backgroundColor: "#fff", borderBottomWidth: 1, borderBottomColor: "#E5E7EB" }}>
+                      <View style={{ flex: 1, paddingRight: 8 }}>
+                        <Text style={{ fontSize: 14, fontWeight: "700", color: "#11181C" }} numberOfLines={1}>{request.userName}</Text>
+                        <Text style={{ fontSize: 12, color: "#687076", marginTop: 3 }}>{request.date} · {request.dutyType}</Text>
+                        <Text style={{ fontSize: 11, color: "#687076", marginTop: 3 }}>Rejected by: {adminName}</Text>
+                        <Text style={{ fontSize: 11, color: "#687076", marginTop: 2 }}>{actionDateTime}</Text>
+                      </View>
+                      {Platform.OS === "web" && (canRestore ? (
+                        <TouchableOpacity onPress={() => handleRestoreRejectedDuty(request)} disabled={restoringRejectedId === request.id} style={{ backgroundColor: "#2563EB", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8 }}>
+                          {restoringRejectedId === request.id ? <ActivityIndicator size="small" color="#fff" /> : <Text style={{ color: "#fff", fontSize: 11, fontWeight: "700" }}>Restore</Text>}
+                        </TouchableOpacity>
+                      ) : (
+                        <Text style={{ color: "#9CA3AF", fontSize: 11, fontWeight: "600" }}>Past / today</Text>
+                      ))}
+                    </View>
+                  );
+
+                  if (Platform.OS !== "web" && canRestore) {
+                    return (
+                      <Swipeable
+                        key={request.id}
+                        renderLeftActions={() => (
+                          <TouchableOpacity onPress={() => handleRestoreRejectedDuty(request)} style={{ backgroundColor: "#2563EB", justifyContent: "center", alignItems: "center", paddingHorizontal: 18 }}>
+                            {restoringRejectedId === request.id ? <ActivityIndicator size="small" color="#fff" /> : <><Text style={{ color: "#fff", fontSize: 20, fontWeight: "700" }}>↶</Text><Text style={{ color: "#fff", fontSize: 11, fontWeight: "700" }}>Restore</Text></>}
+                          </TouchableOpacity>
+                        )}
+                        overshootLeft={false}
+                        overshootRight={false}
+                      >
+                        {row}
+                      </Swipeable>
+                    );
+                  }
+                  return <View key={request.id}>{row}</View>;
+                })}
+              </ScrollView>
+            )}
+            <ModalCloseButton label="Close" onPress={() => setShowRejectedModal(false)} />
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Add Duty Option Modal */}
       <Modal
